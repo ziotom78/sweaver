@@ -1,7 +1,7 @@
 # SWEaver — A converter for TICRA Spherical Wave Expansions
 
 <center>
-![](logo/sweaver-logo.svg)
+<img src="logo/sweaver-logo.svg" alt="">
 </center>
 
 **SWEaver is currently under active development alongside an upcoming companion paper (Tomasi et al., in prep). If you wish to use this tool for academic work prior to publication, please contact the authors.**
