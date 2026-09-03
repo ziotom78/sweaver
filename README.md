@@ -10,10 +10,6 @@ This repository contains SWEaver, a Python library that bridges antenna engineer
 
 ![](TICRA-Tools-screenshot.png)
 
-## Why the name?
-
-TICRA Tools models and outputs are inherently tied to specific local coordinate systems, nested bases, and strict proprietary conventions. `SWEaver` is designed to “un-GRASP” your electromagnetic data—freeing the spherical harmonic coefficients from their rigid local frames and letting you analytically rotate, translate, and superimpose fields in a unified global environment.
-
 ## Features
 
 - **Native SWE Parsing**: Directly ingests and parses binary and ASCII TICRA Spherical Wave Expansion files.
