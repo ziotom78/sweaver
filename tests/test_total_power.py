@@ -1,28 +1,37 @@
 # -*- encoding: utf-8 -*-
 #
-#  █████  █████
-# ░░███  ░░███
-#  ░███   ░███  ████████    ███████ ████████   ██████    █████  ████████
-#  ░███   ░███ ░░███░░███  ███░░███░░███░░███ ░░░░░███  ███░░  ░░███░░███
-#  ░███   ░███  ░███ ░███ ░███ ░███ ░███ ░░░   ███████ ░░█████  ░███ ░███
-#  ░███   ░███  ░███ ░███ ░███ ░███ ░███      ███░░███  ░░░░███ ░███ ░███
-#  ░░████████   ████ █████░░███████ █████    ░░████████ ██████  ░███████
-#   ░░░░░░░░   ░░░░ ░░░░░  ░░░░░███░░░░░      ░░░░░░░░ ░░░░░░   ░███░░░
-#                          ███ ░███                             ░███
-#                         ░░██████                              █████
-#                          ░░░░░░                              ░░░░░
+# SWEaver: harmonic-domain manipulation of electomagnetic beams for CMB analysis
+#
+#           ##############
+#        #######        #######
+#      ####                  ####
+#    ####                      ####
+#   ###                          ###
+#  ###  ####       ##       ####  ###
+#  ## #######      ##      ####### ##
+# ###########     ###      ###########
+# ######  ###     ####     ### #######
+# ####     ###    ####    ###     ####
+# ###       ##   ######   ###       ##
+#  ##       ###  ##  ##  ###       ##
+#  ###      #######  #######      ###
+#   ###      #####    #####      ###
+#    ####    #####    #####    ####
+#      ####                  ####
+#        #######        #######
+#            ##############
 #
 # Copyright © 2026 Maurizio Tomasi
-# This code is licensed under the EUPL 1.2
-# See the file LICENSE.tx
+# This code is licensed under the GPL 3
+# See the file LICENSE.txt
 
 import numpy as np
-import ungrasp
+import sweaver
 
 
 def build_test_field(
     lmax: int, mmax: int, active_modes: list[tuple[int, int, int, complex]]
-) -> ungrasp.ElectricField:
+) -> sweaver.ElectricField:
     """
     Helper function to create a mathematically pure ElectricField.
     Injects specific values into the alm_stack at the given (component, ℓ, m) coordinates.
@@ -32,10 +41,10 @@ def build_test_field(
     alm_stack = np.zeros((4, nalm), dtype=np.complex128)
 
     for comp, ell, m, val in active_modes:
-        idx = ungrasp.ElectricField._get_idx(ell, m, lmax=lmax)
+        idx = sweaver.ElectricField._get_idx(ell, m, lmax=lmax)
         alm_stack[comp, idx] = val
 
-    return ungrasp.ElectricField(
+    return sweaver.ElectricField(
         frequency_ghz=30.0, lmax=lmax, mmax=mmax, alm_stack=alm_stack
     )
 

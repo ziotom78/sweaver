@@ -1,36 +1,45 @@
 # -*- encoding: utf-8 -*-
 #
-#  █████  █████
-# ░░███  ░░███
-#  ░███   ░███  ████████    ███████ ████████   ██████    █████  ████████
-#  ░███   ░███ ░░███░░███  ███░░███░░███░░███ ░░░░░███  ███░░  ░░███░░███
-#  ░███   ░███  ░███ ░███ ░███ ░███ ░███ ░░░   ███████ ░░█████  ░███ ░███
-#  ░███   ░███  ░███ ░███ ░███ ░███ ░███      ███░░███  ░░░░███ ░███ ░███
-#  ░░████████   ████ █████░░███████ █████    ░░████████ ██████  ░███████
-#   ░░░░░░░░   ░░░░ ░░░░░  ░░░░░███░░░░░      ░░░░░░░░ ░░░░░░   ░███░░░
-#                          ███ ░███                             ░███
-#                         ░░██████                              █████
-#                          ░░░░░░                              ░░░░░
+# SWEaver: harmonic-domain manipulation of electomagnetic beams for CMB analysis
+#
+#           ##############
+#        #######        #######
+#      ####                  ####
+#    ####                      ####
+#   ###                          ###
+#  ###  ####       ##       ####  ###
+#  ## #######      ##      ####### ##
+# ###########     ###      ###########
+# ######  ###     ####     ### #######
+# ####     ###    ####    ###     ####
+# ###       ##   ######   ###       ##
+#  ##       ###  ##  ##  ###       ##
+#  ###      #######  #######      ###
+#   ###      #####    #####      ###
+#    ####    #####    #####    ####
+#      ####                  ####
+#        #######        #######
+#            ##############
 #
 # Copyright © 2026 Maurizio Tomasi
-# This code is licensed under the EUPL 1.2
+# This code is licensed under the GPL 3
 # See the file LICENSE.txt
 
 import numpy as np
 import pytest
 
-import ungrasp
+import sweaver
 
-from utils import get_gaussian_beam
+from utils import get_gaussian_beam, angular_distance_periodic
 
 
 def test_rotate_euler():
     """Verifies that rotate_euler rotates the beam correctly by evaluating its peak."""
     gaussian_efield = get_gaussian_beam()
 
-    # Base peak should be at the origin
     base_th, base_ph, base_ps = gaussian_efield.find_peak(
-        region_theta_rad=(0, np.radians(2.0), 10), region_phi_rad=(0, 2 * np.pi, 20)
+        region_theta_rad=(0, np.radians(2.0), 10),
+        region_phi_rad=(0, 2 * np.pi, 20),
     )
     assert base_th == pytest.approx(0.0, abs=1e-3)
 
@@ -38,20 +47,21 @@ def test_rotate_euler():
     phi_off = np.radians(45.0)
     psi_off = np.radians(10.0)
 
-    # Inject the displacement using the method under test
     rotated_efield = gaussian_efield.rotate_euler(
-        ungrasp.EulerAngles(alpha_rad=psi_off, beta_rad=theta_off, gamma_rad=phi_off),
+        sweaver.EulerAngles(
+            alpha_rad=phi_off,
+            beta_rad=theta_off,
+            gamma_rad=psi_off,
+        ),
     )
 
-    # Evaluate the peak of the rotated field
     new_th, new_ph, new_ps = rotated_efield.find_peak(
         region_theta_rad=(np.radians(10.0), np.radians(20.0), 20),
         region_phi_rad=(np.radians(30.0), np.radians(60.0), 20),
     )
 
-    # The new peak should be exactly at the Euler angles we passed
     assert new_th == pytest.approx(theta_off, abs=1e-3)
-    assert new_ph == pytest.approx(phi_off, abs=1e-3)
+    assert angular_distance_periodic(new_ph, phi_off) == pytest.approx(0.0, abs=1e-3)
 
 
 def test_rotate_grasp():

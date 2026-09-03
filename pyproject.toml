@@ -1,23 +1,21 @@
 [project]
-name = "ungrasp"
+name = "sweaver"
 version = "0.1.0"
 description = "Convert TICRA GRASP .sph coefficients to spin-weighted spherical harmonics for CMB analysis."
 readme = "README.md"
-authors = [
-    { name = "Maurizio Tomasi", email = "ziotom78@gmail.com" }
-]
+authors = [{ name = "Maurizio Tomasi", email = "ziotom78@gmail.com" }]
 requires-python = ">=3.11"
 dependencies = [
-    "astropy>=7.2.0",
-    "ducc0>=0.40.0",
-    "numpy>=1.26.0",
-    "scipy>=1.17.0",
-    "scipy-stubs~=1.17.0",
-    "typer>=0.21.1",
+  "astropy>=7.2.0",
+  "ducc0>=0.40.0",
+  "numpy>=1.26.0",
+  "scipy>=1.17.0",
+  "scipy-stubs~=1.17.0",
+  "typer>=0.21.1",
 ]
 
 [project.scripts]
-ungrasp = "ungrasp.cli:app"
+sweaver = "sweaver.cli:app"
 
 [build-system]
 requires = ["uv_build>=0.9.26,<0.10.0"]
@@ -25,31 +23,28 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
-    "hypothesis>=6.151.2",
-    "mkdocs-material>=9.7.1",
-    "mkdocstrings-python>=2.0.1",
-    "nox>=2026.2.9",
-    "nox-uv>=0.7.1",
-    "prek>=0.3.2",
-    "pytest>=9.0.2",
-    "pytest-cov>=7.0.0",
-    "ty==0.0.28",
+  "hypothesis>=6.151.2",
+  "mkdocs-material>=9.7.1",
+  "mkdocstrings-python>=2.0.1",
+  "nox>=2026.2.9",
+  "nox-uv>=0.7.1",
+  "prek>=0.3.2",
+  "pytest>=9.0.2",
+  "pytest-cov>=7.0.0",
+  "ruff>=0.15.15",
+  "ty==0.0.28",
 ]
 visualization = [
-    "jupyterlab>=4.5.5",
-    "matplotlib>=3.10.8",
-    "ipywidgets>=8.1.8",
-    "plotly>=6.5.2",
+  "jupyterlab>=4.5.5",
+  "matplotlib>=3.10.8",
+  "ipywidgets>=8.1.8",
+  "plotly>=6.5.2",
 ]
-docs = [
-    "sphinx>=8.2.1",
-    "sphinx-rtd-theme>=3.0.2",
-    "matplotlib>=3.10.8",
-]
+docs = ["sphinx>=8.2.1", "sphinx-rtd-theme>=3.0.2", "matplotlib>=3.10.8"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--cov=src/ungrasp"
+addopts = "--cov=src/sweaver"
 
 [tool.uv_build]
-include = ["src/ungrasp/test_data/**/*"]
+include = ["src/sweaver/test_data/**/*"]

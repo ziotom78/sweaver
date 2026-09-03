@@ -1,4 +1,29 @@
 # -*- encoding: utf-8 -*-
+#
+# SWEaver: harmonic-domain manipulation of electomagnetic beams for CMB analysis
+#
+#           ##############
+#        #######        #######
+#      ####                  ####
+#    ####                      ####
+#   ###                          ###
+#  ###  ####       ##       ####  ###
+#  ## #######      ##      ####### ##
+# ###########     ###      ###########
+# ######  ###     ####     ### #######
+# ####     ###    ####    ###     ####
+# ###       ##   ######   ###       ##
+#  ##       ###  ##  ##  ###       ##
+#  ###      #######  #######      ###
+#   ###      #####    #####      ###
+#    ####    #####    #####    ####
+#      ####                  ####
+#        #######        #######
+#            ##############
+#
+# Copyright © 2026 Maurizio Tomasi
+# This code is licensed under the GPL 2
+# See the file LICENSE.txt
 
 from pathlib import Path
 import importlib.resources
@@ -6,7 +31,7 @@ import importlib.resources
 
 def get_test_data_path(identifier: str) -> Path:
     """
-    Return the path to a .sph file used in Ungrasp's tests.
+    Return the path to a .sph file used in SWEaver's tests.
 
     This function is useful for quickly getting sample data to test the library.
     Available identifiers typically correspond to the file names in the `tests/data`
@@ -23,7 +48,7 @@ def get_test_data_path(identifier: str) -> Path:
         FileNotFoundError: If the requested file cannot be found in the test data directory.
     """
     # Use importlib.resources to find the data files packaged inside the module
-    data_dir = importlib.resources.files("ungrasp") / "test_data"
+    data_dir = importlib.resources.files("sweaver") / "test_data"
 
     if not data_dir.is_dir():
         raise FileNotFoundError(

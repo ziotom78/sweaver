@@ -1,19 +1,28 @@
 # -*- encoding: utf-8 -*-
 #
-#  █████  █████
-# ░░███  ░░███
-#  ░███   ░███  ████████    ███████ ████████   ██████    █████  ████████
-#  ░███   ░███ ░░███░░███  ███░░███░░███░░███ ░░░░░███  ███░░  ░░███░░███
-#  ░███   ░███  ░███ ░███ ░███ ░███ ░███ ░░░   ███████ ░░█████  ░███ ░███
-#  ░███   ░███  ░███ ░███ ░███ ░███ ░███      ███░░███  ░░░░███ ░███ ░███
-#  ░░████████   ████ █████░░███████ █████    ░░████████ ██████  ░███████
-#   ░░░░░░░░   ░░░░ ░░░░░  ░░░░░███░░░░░      ░░░░░░░░ ░░░░░░   ░███░░░
-#                          ███ ░███                             ░███
-#                         ░░██████                              █████
-#                          ░░░░░░                              ░░░░░
+# SWEaver: harmonic-domain manipulation of electomagnetic beams for CMB analysis
+#
+#           ##############
+#        #######        #######
+#      ####                  ####
+#    ####                      ####
+#   ###                          ###
+#  ###  ####       ##       ####  ###
+#  ## #######      ##      ####### ##
+# ###########     ###      ###########
+# ######  ###     ####     ### #######
+# ####     ###    ####    ###     ####
+# ###       ##   ######   ###       ##
+#  ##       ###  ##  ##  ###       ##
+#  ###      #######  #######      ###
+#   ###      #####    #####      ###
+#    ####    #####    #####    ####
+#      ####                  ####
+#        #######        #######
+#            ##############
 #
 # Copyright © 2026 Maurizio Tomasi
-# This code is licensed under the EUPL 1.2
+# This code is licensed under the GPL 3
 # See the file LICENSE.txt
 
 from dataclasses import dataclass
@@ -22,7 +31,17 @@ from typing import TextIO
 
 import numpy as np
 
-import ungrasp
+import sweaver
+
+
+def angle_mod_pi_distance(a: float, b: float) -> float:
+    """Return the shortest signed distance between two angles modulo pi."""
+    return (a - b + 0.5 * np.pi) % np.pi - 0.5 * np.pi
+
+
+def angular_distance_periodic(a: float, b: float) -> float:
+    """Return the shortest signed distance between two angles modulo 2pi."""
+    return (a - b + np.pi) % (2 * np.pi) - np.pi
 
 
 @dataclass
@@ -76,8 +95,24 @@ def load_grd_file(
     )
 
 
-def get_gaussian_beam() -> ungrasp.ElectricField:
-    with gzip.open(ungrasp.get_test_data_path("gaussian_beam.sph.gz"), "rt") as f:
-        grasp_file = ungrasp.read_sph_file(f)
+def get_gaussian_beam() -> sweaver.ElectricField:
+    with gzip.open(sweaver.get_test_data_path("gaussian_beam.sph.gz"), "rt") as f:
+        grasp_file = sweaver.read_sph_file(f)
         assert grasp_file.num_of_blocks == 1
-        return ungrasp.ElectricField.from_frequency_block(grasp_file.get(index=0))
+        return sweaver.ElectricField.from_frequency_block(grasp_file.get(index=0))
+
+
+def load_dipole_sph(file_name: str):
+    with open(sweaver.get_test_data_path(file_name), "rt") as f:
+        grasp = sweaver.read_sph_file(f)
+        return sweaver.ElectricField.from_frequency_block(grasp.get(0))
+
+
+def load_asymmetric_field() -> sweaver.ElectricField:
+    """Load the asymmetric test field used in the GRASP comparison tests."""
+    with gzip.open(sweaver.get_test_data_path("asymmetric_swe.sph.gz"), "rt") as f:
+        grasp_file = sweaver.read_sph_file(f)
+
+    assert grasp_file.num_of_blocks == 1
+
+    return sweaver.ElectricField.from_frequency_block(grasp_file.get(index=0))

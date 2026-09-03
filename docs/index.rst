@@ -1,7 +1,7 @@
-Ungrasp Documentation
+SWEaver Documentation
 =====================
 
-Welcome to the documentation for **Ungrasp**, a Python library that reads TICRA GRASP spherical harmonic files (`.sph`) and converts them into spin-weighted spherical harmonics.
+Welcome to the documentation for **SWEaver**, a Python library that reads TICRA GRASP spherical harmonic files (`.sph`) and converts them into spin-weighted spherical harmonics.
 
 .. toctree::
    :maxdepth: 2

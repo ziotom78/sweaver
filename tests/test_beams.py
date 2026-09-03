@@ -1,34 +1,43 @@
 # -*- encoding: utf-8 -*-
 #
-#  █████  █████
-# ░░███  ░░███
-#  ░███   ░███  ████████    ███████ ████████   ██████    █████  ████████
-#  ░███   ░███ ░░███░░███  ███░░███░░███░░███ ░░░░░███  ███░░  ░░███░░███
-#  ░███   ░███  ░███ ░███ ░███ ░███ ░███ ░░░   ███████ ░░█████  ░███ ░███
-#  ░███   ░███  ░███ ░███ ░███ ░███ ░███      ███░░███  ░░░░███ ░███ ░███
-#  ░░████████   ████ █████░░███████ █████    ░░████████ ██████  ░███████
-#   ░░░░░░░░   ░░░░ ░░░░░  ░░░░░███░░░░░      ░░░░░░░░ ░░░░░░   ░███░░░
-#                          ███ ░███                             ░███
-#                         ░░██████                              █████
-#                          ░░░░░░                              ░░░░░
+# SWEaver: harmonic-domain manipulation of electomagnetic beams for CMB analysis
+#
+#           ##############
+#        #######        #######
+#      ####                  ####
+#    ####                      ####
+#   ###                          ###
+#  ###  ####       ##       ####  ###
+#  ## #######      ##      ####### ##
+# ###########     ###      ###########
+# ######  ###     ####     ### #######
+# ####     ###    ####    ###     ####
+# ###       ##   ######   ###       ##
+#  ##       ###  ##  ##  ###       ##
+#  ###      #######  #######      ###
+#   ###      #####    #####      ###
+#    ####    #####    #####    ####
+#      ####                  ####
+#        #######        #######
+#            ##############
 #
 # Copyright © 2026 Maurizio Tomasi
-# This code is licensed under the EUPL 1.2
+# This code is licensed under the GPL 3
 # See the file LICENSE.txt
 
-import ungrasp
+import sweaver
 
 import numpy as np
 import numpy.testing as npt
 import pytest
 
 
-def get_beam_alm(file_name: str) -> ungrasp.Beam:
-    with (ungrasp.get_test_data_path(file_name)).open("rt") as f:
-        grasp_file = ungrasp.read_sph_file(f)
+def get_beam_alm(file_name: str) -> sweaver.Beam:
+    with (sweaver.get_test_data_path(file_name)).open("rt") as f:
+        grasp_file = sweaver.read_sph_file(f)
 
-    electric_field = ungrasp.ElectricField.from_frequency_block(grasp_file.get(index=0))
-    return ungrasp.Beam.from_electric_field(electric_field, lmax=2)
+    electric_field = sweaver.ElectricField.from_frequency_block(grasp_file.get(index=0))
+    return sweaver.Beam.from_electric_field(electric_field, lmax=2)
 
 
 def test_convert_electric_dipole_to_beam(data_dir):

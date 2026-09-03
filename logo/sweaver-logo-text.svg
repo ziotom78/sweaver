@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="82.093216mm"
+   height="98.294258mm"
+   viewBox="0 0 82.093216 98.294258"
+   version="1.1"
+   id="svg1"
+   inkscape:version="1.4.4 (dcaf3e7d9e, 2026-05-05)"
+   sodipodi:docname="sweaver-logo-text.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     inkscape:zoom="1.1711946"
+     inkscape:cx="385.0769"
+     inkscape:cy="234.80299"
+     inkscape:window-width="1920"
+     inkscape:window-height="1135"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs1">
+    <linearGradient
+       id="linearGradient6">
+      <stop
+         style="stop-color:#ffffff;stop-opacity:1;"
+         offset="0"
+         id="stop8" />
+      <stop
+         style="stop-color:#ffffff;stop-opacity:0;"
+         offset="1"
+         id="stop9" />
+    </linearGradient>
+    <linearGradient
+       id="linearGradient6-1">
+      <stop
+         style="stop-color:#ffffff;stop-opacity:1;"
+         offset="0"
+         id="stop6" />
+      <stop
+         style="stop-color:#1e90ff;stop-opacity:1;"
+         offset="1"
+         id="stop7" />
+    </linearGradient>
+    <inkscape:path-effect
+       effect="fill_between_many"
+       method="originald"
+       linkedpaths="#circle3,0,1|#path1,0,1"
+       id="path-effect3"
+       is_visible="true"
+       lpeversion="0"
+       join="true"
+       close="true"
+       autoreverse="true" />
+    <inkscape:path-effect
+       effect="fill_between_many"
+       method="originald"
+       linkedpaths="#circle3,0,1|#path1,0,1"
+       id="path-effect4"
+       is_visible="true"
+       lpeversion="0"
+       join="true"
+       close="true"
+       autoreverse="true" />
+    <radialGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient6-1"
+       id="radialGradient7"
+       cx="152.78693"
+       cy="151.75751"
+       fx="152.78693"
+       fy="151.75751"
+       r="41.800308"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="matrix(0.96244098,0,0,0.96244098,5.2515905,6.6638002)" />
+  </defs>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-98.775733,-136.37548)">
+    <circle
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:2.27952;stroke-dasharray:none;stroke-opacity:1"
+       id="circle9"
+       cx="139.82234"
+       cy="177.42209"
+       r="39.906849" />
+    <circle
+       style="fill:url(#radialGradient7);fill-opacity:1;stroke:none;stroke-width:0.897957;stroke-dasharray:none;stroke-opacity:1"
+       id="circle6"
+       cx="139.82234"
+       cy="177.42209"
+       r="40.230328" />
+    <path
+       id="path3"
+       style="fill:#ff8c00;fill-opacity:1;stroke:#000000;stroke-width:1.065;stroke-dasharray:none;stroke-opacity:1"
+       d="m 179.68826,170.22264 c 0,0 -12.4598,-11.77874 -17.65209,-11.9271 -5.19229,-0.14835 -4.14851,36.34607 -11.19519,36.27187 -7.04669,-0.0742 -7.94123,-36.12073 -11.05348,-36.12273 -3.11225,-0.002 -4.00679,36.04372 -11.05348,36.11792 -7.04668,0.0742 -6.0029,-36.42022 -11.19519,-36.27187 -5.19229,0.14836 -7.86176,2.59615 -17.50459,11.8681 -0.590009,4.52714 -0.767012,9.11328 0,13.75842 8.22731,-9.27195 9.66647,-11.71974 14.85876,-11.8681 5.19229,-0.14835 4.5531,36.34605 13.84102,36.27187 7.04685,-0.0563 7.94123,-26.59533 11.05348,-26.59292 3.11225,0.002 4.13052,26.30315 11.17144,26.59773 10.2316,0.42808 8.53077,-36.42022 13.72306,-36.27187 5.19229,0.14836 15.09476,11.8681 15.09476,11.8681 0.73751,-4.73364 0.70801,-8.99528 -0.0885,-13.69942 z"
+       sodipodi:nodetypes="csscssccsscsscc" />
+    <text
+       xml:space="preserve"
+       style="font-size:17.6389px;writing-mode:lr-tb;direction:ltr;fill:#000000;fill-opacity:1;stroke:none;stroke-width:2.298;stroke-dasharray:none;stroke-opacity:1"
+       x="97.861053"
+       y="234.41997"
+       id="text9"><tspan
+         sodipodi:role="line"
+         id="tspan9"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:17.6389px;font-family:'Bitstream Vera Serif';-inkscape-font-specification:'Bitstream Vera Serif';fill:#000000;fill-opacity:1;stroke:none;stroke-width:2.298"
+         x="97.861053"
+         y="234.41997">SWEaver</tspan></text>
+  </g>
+</svg>

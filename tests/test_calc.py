@@ -1,28 +1,37 @@
 # -*- encoding: utf-8 -*-
 #
-#  █████  █████
-# ░░███  ░░███
-#  ░███   ░███  ████████    ███████ ████████   ██████    █████  ████████
-#  ░███   ░███ ░░███░░███  ███░░███░░███░░███ ░░░░░███  ███░░  ░░███░░███
-#  ░███   ░███  ░███ ░███ ░███ ░███ ░███ ░░░   ███████ ░░█████  ░███ ░███
-#  ░███   ░███  ░███ ░███ ░███ ░███ ░███      ███░░███  ░░░░███ ░███ ░███
-#  ░░████████   ████ █████░░███████ █████    ░░████████ ██████  ░███████
-#   ░░░░░░░░   ░░░░ ░░░░░  ░░░░░███░░░░░      ░░░░░░░░ ░░░░░░   ░███░░░
-#                          ███ ░███                             ░███
-#                         ░░██████                              █████
-#                          ░░░░░░                              ░░░░░
+# SWEaver: harmonic-domain manipulation of electomagnetic beams for CMB analysis
+#
+#           ##############
+#        #######        #######
+#      ####                  ####
+#    ####                      ####
+#   ###                          ###
+#  ###  ####       ##       ####  ###
+#  ## #######      ##      ####### ##
+# ###########     ###      ###########
+# ######  ###     ####     ### #######
+# ####     ###    ####    ###     ####
+# ###       ##   ######   ###       ##
+#  ##       ###  ##  ##  ###       ##
+#  ###      #######  #######      ###
+#   ###      #####    #####      ###
+#    ####    #####    #####    ####
+#      ####                  ####
+#        #######        #######
+#            ##############
 #
 # Copyright © 2026 Maurizio Tomasi
-# This code is licensed under the EUPL 1.2
+# This code is licensed under the GPL 3
 # See the file LICENSE.txt
 
 import numpy as np
-import ungrasp
+import sweaver
 
 
 def create_dummy_field(
     freq_ghz: float, lmax: int, mmax: int, base_multiplier: float
-) -> ungrasp.ElectricField:
+) -> sweaver.ElectricField:
     """
     Creates a dummy ElectricField where every (ℓ, m) coefficient is uniquely
     fingerprinted using the function: base_multiplier * (10 * (ℓ + 1)**2 + m)
@@ -32,13 +41,13 @@ def create_dummy_field(
 
     for ell in range(lmax + 1):
         for m in range(min(ell, mmax) + 1):
-            idx = ungrasp.ElectricField._get_idx(ell=ell, m=m, lmax=lmax)
+            idx = sweaver.ElectricField._get_idx(ell=ell, m=m, lmax=lmax)
 
             # The unique fingerprint
             val = base_multiplier * (10 * (ell + 1) ** 2 + m)
             alm_stack[:, idx] = val + 0.0j
 
-    return ungrasp.ElectricField(freq_ghz, lmax, mmax, alm_stack)
+    return sweaver.ElectricField(freq_ghz, lmax, mmax, alm_stack)
 
 
 def test_add_cross_sizes():
@@ -59,7 +68,7 @@ def test_add_cross_sizes():
 
     for ell in range(field_c.lmax + 1):
         for m in range(min(ell, field_c.mmax) + 1):
-            idx = ungrasp.ElectricField._get_idx(lmax=field_c.lmax, ell=ell, m=m)
+            idx = sweaver.ElectricField._get_idx(lmax=field_c.lmax, ell=ell, m=m)
 
             in_a = (ell <= field_a.lmax) and (m <= field_a.mmax)
             in_b = (ell <= field_b.lmax) and (m <= field_b.mmax)
@@ -94,7 +103,7 @@ def test_sub_cross_sizes():
 
     for ell in range(field_c.lmax + 1):
         for m in range(min(ell, field_c.mmax) + 1):
-            idx = ungrasp.ElectricField._get_idx(lmax=field_c.lmax, ell=ell, m=m)
+            idx = sweaver.ElectricField._get_idx(lmax=field_c.lmax, ell=ell, m=m)
 
             in_a = (ell <= field_a.lmax) and (m <= field_a.mmax)
             in_b = (ell <= field_b.lmax) and (m <= field_b.mmax)

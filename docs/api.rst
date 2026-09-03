@@ -1,7 +1,7 @@
 API Reference
 =============
 
-.. automodule:: ungrasp
+.. automodule:: sweaver
    :members:
    :undoc-members:
    :show-inheritance:

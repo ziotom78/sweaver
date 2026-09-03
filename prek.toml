@@ -16,13 +16,13 @@ id = "ty-check"
 name = "Type checking (ty)"
 entry = "uv run ty check ."
 language = "system"
-types = [ "python" ]
+types = ["python"]
 pass_filenames = false
 
 [[repos.hooks]]
 id = "pytest"
 name = "PyTest"
-entry = "uv run pytest"
+entry = "uv run python3 -m pytest"
 language = "system"
-types = [ "python" ]
+types = ["python"]
 pass_filenames = false

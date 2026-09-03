@@ -1,23 +1,32 @@
 # -*- encoding: utf-8 -*-
 #
-#  █████  █████
-# ░░███  ░░███
-#  ░███   ░███  ████████    ███████ ████████   ██████    █████  ████████
-#  ░███   ░███ ░░███░░███  ███░░███░░███░░███ ░░░░░███  ███░░  ░░███░░███
-#  ░███   ░███  ░███ ░███ ░███ ░███ ░███ ░░░   ███████ ░░█████  ░███ ░███
-#  ░███   ░███  ░███ ░███ ░███ ░███ ░███      ███░░███  ░░░░███ ░███ ░███
-#  ░░████████   ████ █████░░███████ █████    ░░████████ ██████  ░███████
-#   ░░░░░░░░   ░░░░ ░░░░░  ░░░░░███░░░░░      ░░░░░░░░ ░░░░░░   ░███░░░
-#                          ███ ░███                             ░███
-#                         ░░██████                              █████
-#                          ░░░░░░                              ░░░░░
+# SWEaver: harmonic-domain manipulation of electomagnetic beams for CMB analysis
+#
+#           ##############
+#        #######        #######
+#      ####                  ####
+#    ####                      ####
+#   ###                          ###
+#  ###  ####       ##       ####  ###
+#  ## #######      ##      ####### ##
+# ###########     ###      ###########
+# ######  ###     ####     ### #######
+# ####     ###    ####    ###     ####
+# ###       ##   ######   ###       ##
+#  ##       ###  ##  ##  ###       ##
+#  ###      #######  #######      ###
+#   ###      #####    #####      ###
+#    ####    #####    #####    ####
+#      ####                  ####
+#        #######        #######
+#            ##############
 #
 # Copyright © 2026 Maurizio Tomasi
-# This code is licensed under the EUPL 1.2
+# This code is licensed under the GPL 3
 # See the file LICENSE.txt
 
 import gzip
-import ungrasp
+import sweaver
 
 from pathlib import Path
 import numpy as np
@@ -47,8 +56,8 @@ SQRT_2 = np.sqrt(2)
     ],
 )
 def test_hertzian_dipoles(data_file, reference):
-    with (ungrasp.get_test_data_path(data_file)).open("rt") as f:
-        grasp_file = ungrasp.read_sph_file(f)
+    with (sweaver.get_test_data_path(data_file)).open("rt") as f:
+        grasp_file = sweaver.read_sph_file(f)
 
     assert grasp_file.num_of_blocks == 1
     freq_block = grasp_file.get(index=0)
@@ -74,8 +83,8 @@ def test_hertzian_dipoles(data_file, reference):
 
 
 def test_read_multi_frequency():
-    with (ungrasp.get_test_data_path("multi_frequency.sph")).open("rt") as f:
-        grasp_file = ungrasp.read_sph_file(f)
+    with (sweaver.get_test_data_path("multi_frequency.sph")).open("rt") as f:
+        grasp_file = sweaver.read_sph_file(f)
 
     assert grasp_file.num_of_blocks == 2
     assert grasp_file.get(index=0).frequency_ghz == 15.0
@@ -84,26 +93,26 @@ def test_read_multi_frequency():
 
 def test_read_sph_frequency():
     # Test reading from a GZipped file path
-    gz_path = ungrasp.get_test_data_path("gaussian_beam.sph.gz")
-    freq_block_gz = ungrasp.read_sph_frequency_block(gz_path)
+    gz_path = sweaver.get_test_data_path("gaussian_beam.sph.gz")
+    freq_block_gz = sweaver.read_sph_frequency_block(gz_path)
     assert freq_block_gz.frequency_ghz == pytest.approx(15.0)
     npt.assert_allclose(freq_block_gz.cum_power, 0.5, atol=1e-6)
 
     # Test reading from a plain text file path
-    plain_path = ungrasp.get_test_data_path("hertzian_e_dipole_x.sph")
-    freq_block_plain = ungrasp.read_sph_frequency_block(plain_path)
+    plain_path = sweaver.get_test_data_path("hertzian_e_dipole_x.sph")
+    freq_block_plain = sweaver.read_sph_frequency_block(plain_path)
     assert freq_block_plain.frequency_ghz == pytest.approx(15.0)
     npt.assert_allclose(freq_block_plain.cum_power, 0.5, atol=1e-6)
 
     # Test reading from a file-like object (uncompressed)
     with plain_path.open("rt") as f:
-        freq_block_fobj = ungrasp.read_sph_frequency_block(f)
+        freq_block_fobj = sweaver.read_sph_frequency_block(f)
         assert freq_block_fobj.frequency_ghz == pytest.approx(15.0)
         npt.assert_allclose(freq_block_fobj.cum_power, 0.5, atol=1e-6)
 
     # Test reading from a file-like object (GZipped)
     with gzip.open(gz_path, "rt") as f:
-        freq_block_fobj_gz = ungrasp.read_sph_frequency_block(f)
+        freq_block_fobj_gz = sweaver.read_sph_frequency_block(f)
         assert freq_block_fobj_gz.frequency_ghz == pytest.approx(15.0)
         npt.assert_allclose(freq_block_fobj_gz.cum_power, 0.5, atol=1e-6)
 
@@ -111,11 +120,11 @@ def test_read_sph_frequency():
 def test_convert_to_electric_field():
 
     def get_coeffs(file_name: str, ell: int, m: int):
-        with (ungrasp.get_test_data_path(file_name)).open("rt") as f:
-            grasp_file = ungrasp.read_sph_file(f)
+        with (sweaver.get_test_data_path(file_name)).open("rt") as f:
+            grasp_file = sweaver.read_sph_file(f)
 
         assert grasp_file.num_of_blocks == 1
-        electric_field = ungrasp.ElectricField.from_frequency_block(
+        electric_field = sweaver.ElectricField.from_frequency_block(
             grasp_file.get(index=0)
         )
 

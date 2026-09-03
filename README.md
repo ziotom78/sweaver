@@ -1,14 +1,14 @@
-# Ungrasp — A converter for TICRA Spherical Wave Expansions
+# SWEaver — A converter for TICRA Spherical Wave Expansions
 
-**Ungrasp is currently under active development alongside an upcoming companion paper (Tomasi et al., in prep). If you wish to use this tool for academic work prior to publication, please contact the authors.**
+**SWEaver is currently under active development alongside an upcoming companion paper (Tomasi et al., in prep). If you wish to use this tool for academic work prior to publication, please contact the authors.**
 
-This repository contains Ungrasp, a Python library that bridges antenna engineering solvers and Cosmic Microwave Background (CMB) pipelines by directly manipulating TICRA Spherical Wave Expansion (SWE) files. By avoiding pixel-space interpolations, Ungrasp performs mathematically exact rotations in the purely harmonic domain, and high-fidelity phase-shift translations using projections free from integration errors. The software can transform the physical electric field into the spin-weighted Stokes parameters ($I, Q, U$) required by total-convolution codes, and evaluates the resulting fields onto arbitrary real-space grids and cuts.
+This repository contains SWEaver, a Python library that bridges antenna engineering solvers and Cosmic Microwave Background (CMB) pipelines by directly manipulating TICRA Spherical Wave Expansion (SWE) files. By avoiding pixel-space interpolations, SWEaver performs mathematically exact rotations in the purely harmonic domain, and high-fidelity phase-shift translations using projections free from integration errors. The software can transform the physical electric field into the spin-weighted Stokes parameters ($I, Q, U$) required by total-convolution codes, and evaluates the resulting fields onto arbitrary real-space grids and cuts.
 
 ![](TICRA-Tools-screenshot.png)
 
 ## Why the name?
 
-TICRA Tools models and outputs are inherently tied to specific local coordinate systems, nested bases, and strict proprietary conventions. `Ungrasp` is designed to “un-GRASP” your electromagnetic data—freeing the spherical harmonic coefficients from their rigid local frames and letting you analytically rotate, translate, and superimpose fields in a unified global environment.
+TICRA Tools models and outputs are inherently tied to specific local coordinate systems, nested bases, and strict proprietary conventions. `SWEaver` is designed to “un-GRASP” your electromagnetic data—freeing the spherical harmonic coefficients from their rigid local frames and letting you analytically rotate, translate, and superimpose fields in a unified global environment.
 
 ## Features
 
@@ -22,13 +22,13 @@ TICRA Tools models and outputs are inherently tied to specific local coordinate 
 
 ## Validation
 
-`Ungrasp` is verified to match native TICRA Tools evaluations to the literal numerical truncation limit of the ASCII files (~ −80 dB) across complex, highly oscillatory asymmetric interferometric patterns.
+`SWEaver` is verified to match native TICRA Tools evaluations to the literal numerical truncation limit of the ASCII files (~ −80 dB) across complex, highly oscillatory asymmetric interferometric patterns.
 
 The following is a model containing two Gaussian feeds displaced $-4\lambda$ and $+7\lambda$ along the x-axis and rotated by 15° and −22°.
 
 ![](two-gaussian-feeds.png)
 
-The following plot compares the `.cut` file saved by TICRA and the cut computed by Ungrasp by performing the following operations:
+The following plot compares the `.cut` file saved by TICRA and the cut computed by SWEaver by performing the following operations:
 
 - Load *one* SWE file containing the SWE of a Gaussian feed;
 - Duplicate the SWE coefficients and rotate each instance by +15° and −22° using Wigner D-matrices;
@@ -42,13 +42,11 @@ The overall numerical error is $10^{-8}$ dB.
 
 ## Installation
 
-The easiest way to add Ungrasp to your Python code is using `uv`:
+The easiest way to add SWEaver to your Python code is using `uv`:
 
 ```sh
-uv add ungrasp
+uv add sweaver
 ```
-
-
 
 ## Development setup
 
@@ -64,25 +62,25 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 We use dependency groups to keep the environment lean. Depending on your task, sync the environment using one of the following commands:
 
--   Standard Development (Tests, Linting, Typing):
+- Standard Development (Tests, Linting, Typing):
 
     ```sh
     uv sync --group dev
     ```
 
--   Visualization & Research (JupyterLab, Matplotlib, Plotting):
+- Visualization & Research (JupyterLab, Matplotlib, Plotting):
 
     ```sh
     uv sync --group dev --group visualization
     ```
 
--   Documentation:
+- Documentation:
 
     ```sh
     uv sync --group docs
     ```
 
--   Minimal/Production (Library only):
+- Minimal/Production (Library only):
 
     ```sh
     uv sync
@@ -108,22 +106,21 @@ uv run sphinx-build -b html docs/ docs/_build/html
 
 If you are debugging or visually inspecting results using the visualization group, we recommend using the integrated Jupyter kernel.
 
--   Using VS Code / Cursor:
+- Using VS Code / Cursor:
 
-    1.   Open a .ipynb file.
+    1. Open a .ipynb file.
 
-    2.   Select the kernel associated with the .venv created by uv.
+    2. Select the kernel associated with the .venv created by uv.
 
-    3.   If the kernel isn't detected, ensure you have run `uv sync --group visualization`.
+    3. If the kernel isn't detected, ensure you have run `uv sync --group visualization`.
 
--   Using JupyterLab:
+- Using JupyterLab:
 
     ```sh
     uv run jupyter lab
     ```
 
     Note: The visualization group includes heavy dependencies like matplotlib and jupyterlab. These are excluded from the core library installation to keep the package lightweight for end-users.
-
 
 ### Cleaning the workspace
 
@@ -134,13 +131,10 @@ rm -rf .venv
 uv sync
 ```
 
-
 ## Licensing
 
-This project is licensed under the EUPL v1.2. See [LICENSE.txt](./LICENSE.txt).
-
-Please note that this library depends on [Ducc](https://gitlab.mpcdf.mpg.de/mtr/ducc/-/blob/ducc0/LICENSE), which is [licensed under the GPLv2](https://gitlab.mpcdf.mpg.de/mtr/ducc/-/blob/ducc0/LICENSE). When distributed together or used as a combined work, the terms of the GPL may apply to the combination as permitted by the EUPL v1.2 compatibility clause.
+This project is licensed under the GPL 3.0. See [LICENSE.txt](./LICENSE.txt).
 
 ## Citation
 
-A paper describing Ungrasp is currently being prepared. Contact the authors if you want to cite Ungrasp.
+A paper describing SWEaver is currently being prepared. Contact the authors if you want to cite SWEaver.

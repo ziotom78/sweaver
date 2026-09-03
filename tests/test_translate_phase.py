@@ -1,30 +1,39 @@
 # -*- encoding: utf-8 -*-
 #
-#  █████  █████
-# ░░███  ░░███
-#  ░███   ░███  ████████    ███████ ████████   ██████    █████  ████████
-#  ░███   ░███ ░░███░░███  ███░░███░░███░░███ ░░░░░███  ███░░  ░░███░░███
-#  ░███   ░███  ░███ ░███ ░███ ░███ ░███ ░░░   ███████ ░░█████  ░███ ░███
-#  ░███   ░███  ░███ ░███ ░███ ░███ ░███      ███░░███  ░░░░███ ░███ ░███
-#  ░░████████   ████ █████░░███████ █████    ░░████████ ██████  ░███████
-#   ░░░░░░░░   ░░░░ ░░░░░  ░░░░░███░░░░░      ░░░░░░░░ ░░░░░░   ░███░░░
-#                          ███ ░███                             ░███
-#                         ░░██████                              █████
-#                          ░░░░░░                              ░░░░░
+# SWEaver: harmonic-domain manipulation of electomagnetic beams for CMB analysis
+#
+#           ##############
+#        #######        #######
+#      ####                  ####
+#    ####                      ####
+#   ###                          ###
+#  ###  ####       ##       ####  ###
+#  ## #######      ##      ####### ##
+# ###########     ###      ###########
+# ######  ###     ####     ### #######
+# ####     ###    ####    ###     ####
+# ###       ##   ######   ###       ##
+#  ##       ###  ##  ##  ###       ##
+#  ###      #######  #######      ###
+#   ###      #####    #####      ###
+#    ####    #####    #####    ####
+#      ####                  ####
+#        #######        #######
+#            ##############
 #
 # Copyright © 2026 Maurizio Tomasi
-# This code is licensed under the EUPL 1.2
+# This code is licensed under the GPL 3
 # See the file LICENSE.txt
 
 import numpy as np
 import scipy.constants
 
-import ungrasp
+import sweaver
 
 
 def create_analytical_dipole(
     freq_ghz: float, lmax: int, mmax: int
-) -> ungrasp.ElectricField:
+) -> sweaver.ElectricField:
     """
     Creates a mathematically pure, synthetic electric field representing
     a single non-zero harmonic mode (e.g., an l=1, m=1 dipole).
@@ -34,12 +43,12 @@ def create_analytical_dipole(
     alm_stack = np.zeros((4, nalm), dtype=np.complex128)
 
     # Get the ducc0 index for l=1, m=1
-    idx = ungrasp.ElectricField._get_idx(lmax=lmax, ell=1, m=1)
+    idx = sweaver.ElectricField._get_idx(lmax=lmax, ell=1, m=1)
 
     # Inject 1.0 + 0j into the E-mode (Real part) of the l=1, m=1 harmonic
     alm_stack[0, idx] = 1.0 + 0.0j
 
-    return ungrasp.ElectricField(freq_ghz, lmax, mmax, alm_stack)
+    return sweaver.ElectricField(freq_ghz, lmax, mmax, alm_stack)
 
 
 def test_translate_zero():
@@ -71,14 +80,14 @@ def test_translate_z_preserves_symmetry():
     # Verify that power leaked into higher ℓ modes (the beam got wider).
     # Due to parity conservation, multiplying an ℓ=1 (odd) dipole by the real (even)
     # part of the Z-axis phase shift yields strictly odd ℓ-modes (ℓ=3, 5, 7…).
-    idx_l3_m1 = ungrasp.ElectricField._get_idx(lmax=translated.lmax, ell=3, m=1)
+    idx_l3_m1 = sweaver.ElectricField._get_idx(lmax=translated.lmax, ell=3, m=1)
     assert np.abs(translated.alm_stack[0, idx_l3_m1]) > 1e-10, (
         "Z-shift must excite ℓ=3 in the Real part"
     )
 
     # Conversely, multiplying by the imaginary (odd) part of the phase shift
     # yields strictly even l-modes (ℓ=2, 4, 6...).
-    idx_l2_m1 = ungrasp.ElectricField._get_idx(lmax=translated.lmax, ell=2, m=1)
+    idx_l2_m1 = sweaver.ElectricField._get_idx(lmax=translated.lmax, ell=2, m=1)
     assert np.abs(translated.alm_stack[2, idx_l2_m1]) > 1e-10, (
         "Z-shift must excite ℓ=2 in the Imaginary part"
     )
@@ -87,7 +96,7 @@ def test_translate_z_preserves_symmetry():
     for ell in range(translated.lmax + 1):
         for m in range(min(ell, translated.mmax) + 1):
             if m != 1:
-                idx = ungrasp.ElectricField._get_idx(lmax=translated.lmax, ell=ell, m=m)
+                idx = sweaver.ElectricField._get_idx(lmax=translated.lmax, ell=ell, m=m)
                 np.testing.assert_allclose(
                     translated.alm_stack[:, idx],
                     0.0,
@@ -113,8 +122,8 @@ def test_translate_x_breaks_symmetry():
     # in the Imaginary part of the electric field.
     # To make the test completely robust against phase shifts, we check
     # the total magnitude across all 4 (Real/Imag, E/B) components.
-    idx_m0 = ungrasp.ElectricField._get_idx(lmax=translated.lmax, ell=2, m=0)
-    idx_m2 = ungrasp.ElectricField._get_idx(lmax=translated.lmax, ell=2, m=2)
+    idx_m0 = sweaver.ElectricField._get_idx(lmax=translated.lmax, ell=2, m=0)
+    idx_m2 = sweaver.ElectricField._get_idx(lmax=translated.lmax, ell=2, m=2)
 
     power_m0 = np.sum(np.abs(translated.alm_stack[:, idx_m0]))
     power_m2 = np.sum(np.abs(translated.alm_stack[:, idx_m2]))
@@ -142,8 +151,8 @@ def test_translate_round_trip():
     # We loop over the original, smaller array size to compare
     for ell in range(original.lmax + 1):
         for m in range(min(ell, original.mmax) + 1):
-            idx_orig = ungrasp.ElectricField._get_idx(lmax=original.lmax, ell=ell, m=m)
-            idx_back = ungrasp.ElectricField._get_idx(
+            idx_orig = sweaver.ElectricField._get_idx(lmax=original.lmax, ell=ell, m=m)
+            idx_back = sweaver.ElectricField._get_idx(
                 lmax=shifted_back.lmax, ell=ell, m=m
             )
 

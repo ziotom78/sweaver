@@ -1,9 +1,36 @@
+# -*- encoding: utf-8 -*-
+#
+# SWEaver: harmonic-domain manipulation of electomagnetic beams for CMB analysis
+#
+#           ##############
+#        #######        #######
+#      ####                  ####
+#    ####                      ####
+#   ###                          ###
+#  ###  ####       ##       ####  ###
+#  ## #######      ##      ####### ##
+# ###########     ###      ###########
+# ######  ###     ####     ### #######
+# ####     ###    ####    ###     ####
+# ###       ##   ######   ###       ##
+#  ##       ###  ##  ##  ###       ##
+#  ###      #######  #######      ###
+#   ###      #####    #####      ###
+#    ####    #####    #####    ####
+#      ####                  ####
+#        #######        #######
+#            ##############
+#
+# Copyright © 2026 Maurizio Tomasi
+# This code is licensed under the GPL 3
+# See the file LICENSE.txt
+
 import pytest
 
 from pathlib import Path
 import numpy as np
 
-from ungrasp import ElectricField
+from sweaver import ElectricField
 
 
 @pytest.fixture

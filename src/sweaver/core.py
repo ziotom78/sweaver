@@ -1,19 +1,28 @@
 # -*- encoding: utf-8 -*-
 #
-#  █████  █████
-# ░░███  ░░███
-#  ░███   ░███  ████████    ███████ ████████   ██████    █████  ████████
-#  ░███   ░███ ░░███░░███  ███░░███░░███░░███ ░░░░░███  ███░░  ░░███░░███
-#  ░███   ░███  ░███ ░███ ░███ ░███ ░███ ░░░   ███████ ░░█████  ░███ ░███
-#  ░███   ░███  ░███ ░███ ░███ ░███ ░███      ███░░███  ░░░░███ ░███ ░███
-#  ░░████████   ████ █████░░███████ █████    ░░████████ ██████  ░███████
-#   ░░░░░░░░   ░░░░ ░░░░░  ░░░░░███░░░░░      ░░░░░░░░ ░░░░░░   ░███░░░
-#                          ███ ░███                             ░███
-#                         ░░██████                              █████
-#                          ░░░░░░                              ░░░░░
+# SWEaver: harmonic-domain manipulation of electomagnetic beams for CMB analysis
+#
+#           ##############
+#        #######        #######
+#      ####                  ####
+#    ####                      ####
+#   ###                          ###
+#  ###  ####       ##       ####  ###
+#  ## #######      ##      ####### ##
+# ###########     ###      ###########
+# ######  ###     ####     ### #######
+# ####     ###    ####    ###     ####
+# ###       ##   ######   ###       ##
+#  ##       ###  ##  ##  ###       ##
+#  ###      #######  #######      ###
+#   ###      #####    #####      ###
+#    ####    #####    #####    ####
+#      ####                  ####
+#        #######        #######
+#            ##############
 #
 # Copyright © 2026 Maurizio Tomasi
-# This code is licensed under the EUPL 1.2
+# This code is licensed under the GPL 2
 # See the file LICENSE.txt
 
 from dataclasses import dataclass
@@ -28,7 +37,119 @@ import scipy.constants
 from scipy.special import roots_legendre
 
 from .io import FrequencyBlock, read_sph_frequency_block
-from .coord_sys import EulerAngles
+from .coord_sys import EulerAngles, CoordinateSystem
+
+
+def _sph_to_cart(theta: np.ndarray, phi: np.ndarray) -> np.ndarray:
+    """
+    Convert spherical coordinates to Cartesian unit vectors.
+
+    Args:
+        theta: Colatitude angle (ϑ) in radians. May have arbitrary shape.
+        phi: Azimuth angle (φ) in radians. Must have the same shape as theta.
+
+    Returns:
+        Array with shape ``(3, *theta.shape)`` containing Cartesian unit vectors.
+    """
+    return np.stack(
+        [
+            np.sin(theta) * np.cos(phi),
+            np.sin(theta) * np.sin(phi),
+            np.cos(theta),
+        ],
+        axis=0,
+    )
+
+
+def _theta_hat(theta: np.ndarray, phi: np.ndarray) -> np.ndarray:
+    """
+    Return the local spherical e_ϑ basis vector.
+
+    The result is the derivative direction associated with increasing ϑ
+    at fixed φ. This works also for negative theta values, which is useful
+    for TICRA-style cuts spanning negative and positive theta.
+    """
+    return np.stack(
+        [
+            np.cos(theta) * np.cos(phi),
+            np.cos(theta) * np.sin(phi),
+            -np.sin(theta),
+        ],
+        axis=0,
+    )
+
+
+def _phi_hat(theta: np.ndarray, phi: np.ndarray) -> np.ndarray:
+    """
+    Return the local spherical e_φ basis vector.
+
+    The result is the derivative direction associated with increasing φ
+    at fixed ϑ.
+    """
+    return np.stack(
+        [
+            -np.sin(phi),
+            np.cos(phi),
+            np.zeros_like(phi),
+        ],
+        axis=0,
+    )
+
+
+def _cart_to_sph(n: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Convert Cartesian unit vectors to canonical spherical coordinates.
+
+    Args:
+        n: Array with shape ``(3, ...)``.
+
+    Returns:
+        Tuple ``(theta, phi)``, where ``theta`` is in ``[0, pi]`` and
+        ``phi`` is in ``[0, 2*pi)``.
+    """
+    x, y, z = n
+
+    theta = np.arccos(np.clip(z, -1.0, 1.0))
+    phi = np.mod(np.arctan2(y, x), 2 * np.pi)
+
+    return theta, phi
+
+
+def _canonicalize_theta_phi(
+    theta: np.ndarray,
+    phi: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Canonicalize spherical coordinates for use with ducc0.
+
+    SWEaver/TICRA cuts may use negative ϑ values. The direction
+
+        (ϑ, φ), ϑ < 0
+
+    is mapped to
+
+        (-ϑ, φ + π)
+
+    before calling ducc0, and the returned tangent components must then be
+    multiplied by -1. The returned mask marks the samples where this happened.
+
+    Args:
+        theta: Input colatitude angles (ϑ).
+        phi: Input azimuth angles (φ).
+
+    Returns:
+        ``theta_work, phi_work, neg_mask``.
+    """
+    theta_work = np.array(theta, copy=True)
+    phi_work = np.array(phi, copy=True)
+
+    neg_mask = theta_work < 0
+
+    theta_work[neg_mask] = -theta_work[neg_mask]
+    phi_work[neg_mask] = phi_work[neg_mask] + np.pi
+    phi_work = np.mod(phi_work, 2 * np.pi)
+
+    return theta_work, phi_work, neg_mask
 
 
 class Polarization(Enum):
@@ -201,11 +322,23 @@ class ElectricField:
         alm_stack: np.ndarray,
     ) -> None:
         self.frequency_ghz = frequency_ghz
-        self.lmax = lmax
-        self.mmax = mmax
-        self.alm_stack = alm_stack
+        self.lmax = int(lmax)
+        self.mmax = int(mmax)
+        self.alm_stack = np.asarray(alm_stack, dtype=np.complex128)
 
-        assert self.lmax >= self.mmax
+        if self.lmax < self.mmax:
+            raise ValueError(
+                f"lmax must be >= mmax; got lmax={self.lmax}, mmax={self.mmax}"
+            )
+
+        expected_shape = (4, ElectricField._num_of_alms(self.lmax, self.mmax))
+
+        if self.alm_stack.shape != expected_shape:
+            raise ValueError(
+                "alm_stack has shape inconsistent with lmax/mmax; "
+                f"got {self.alm_stack.shape}, expected {expected_shape} "
+                f"for lmax={self.lmax}, mmax={self.mmax}"
+            )
 
     @classmethod
     def from_frequency_block(cls, freq_block: FrequencyBlock):
@@ -213,13 +346,13 @@ class ElectricField:
         Create an ElectricField instance from a FrequencyBlock.
 
         This class method converts the raw :math:`Q_{smn}` coefficients from a
-        `ungrasp.FrequencyBlock` into the spin-1 spherical harmonic
+        :class:`.FrequencyBlock` into the spin-1 spherical harmonic
         coefficients (:math:`a_{\\ell m}`) that represent the electric field.
         The coefficients are normalized to ensure consistency with standard
         spherical harmonic conventions.
 
         Args:
-            freq_block (FrequencyBlock): An instance of `ungrasp.FrequencyBlock` containing the
+            freq_block (FrequencyBlock): An instance of :class:`.FrequencyBlock` containing the
                 GRASP spherical wave expansion coefficients for a single frequency.
 
         Returns:
@@ -251,6 +384,21 @@ class ElectricField:
     def _get_idx(ell: int, m: int, lmax: int) -> int:
         """Return the index of an a_ℓm coefficient in a Healpix/ducc0 array."""
         return m * (2 * lmax + 1 - m) // 2 + ell
+
+    @staticmethod
+    def _coor_sys_to_rotation_matrix(
+        coor_sys: CoordinateSystem | EulerAngles | np.ndarray,
+    ) -> np.ndarray:
+        """
+        Convert a coordinate-system-like object to a child-to-base rotation matrix.
+        """
+        if isinstance(coor_sys, CoordinateSystem):
+            return coor_sys.as_child_to_base_matrix()
+
+        if isinstance(coor_sys, EulerAngles):
+            return coor_sys.as_child_to_base_matrix()
+
+        return np.asarray(coor_sys, dtype=float)
 
     @staticmethod
     def analyze_gl_grid_to_alm(
@@ -392,6 +540,12 @@ class ElectricField:
                 "Target dimensions must be greater than or equal to current dimensions."
             )
 
+        if target_mmax > target_lmax:
+            raise ValueError(
+                f"target_mmax must be ≤ target_lmax; "
+                f"got target_mmax={target_mmax}, target_lmax={target_lmax}"
+            )
+
         # Correct calculation of total size for ducc0/HEALPix layout
         # This is the sum of (target_lmax - m + 1) from m=0 to target_mmax
         nalm_new = (target_mmax + 1) * (2 * target_lmax + 2 - target_mmax) // 2
@@ -417,46 +571,143 @@ class ElectricField:
 
         return new_stack
 
-    def __add__(self, other: "ElectricField") -> "ElectricField":
-        """Allows algebraic addition of two ElectricFields: field3 = field1 + field2"""
-        if not np.isclose(self.frequency_ghz, other.frequency_ghz, atol=1e-6):
+    def with_lmax_mmax(
+        self,
+        lmax: int | None = None,
+        mmax: int | None = None,
+    ) -> "ElectricField":
+        """
+        Return an equivalent field represented with larger harmonic limits.
+
+        This method returns a new spherical-electric-field object whose harmonic
+        coefficients are defined up to the requested ``lmax`` and ``mmax``. Existing
+        coefficients are copied into the appropriate ducc0/HEALPix-layout positions,
+        and all newly introduced coefficients are set to zero.
+
+        The represented physical field is unchanged. Only the size of the harmonic
+        coefficient storage changes.
+
+        This is useful when comparing or combining fields whose coefficients were
+        produced with different ``mmax`` values. In particular, an axially symmetric
+        or otherwise low-``mmax`` field may acquire non-zero coefficients at higher
+        ``m`` after an arbitrary rotation. Therefore, rotated and unrotated versions
+        of the same field may need to be promoted to a common harmonic space before
+        their raw coefficient arrays can be compared.
+
+        Args:
+            lmax:
+                Target maximum multipole. If ``None``, the current ``self.lmax`` is
+                used.
+
+            mmax:
+                Target maximum azimuthal order. If ``None``, the current
+                ``self.mmax`` is used.
+
+        Returns:
+            A new field object with the same physical content but with harmonic
+            storage large enough for the requested ``lmax`` and ``mmax``.
+
+        Raises:
+            ValueError:
+                If ``lmax`` or ``mmax`` is smaller than the current value, or if
+                ``mmax > lmax``.
+        """
+        target_lmax: int = self.lmax if lmax is None else int(lmax)
+        target_mmax: int = self.mmax if mmax is None else int(mmax)
+
+        if target_lmax < self.lmax:
             raise ValueError(
-                "Cannot superimpose fields with different physical frequencies."
+                f"target lmax must be ≥ current lmax; got {target_lmax} < {self.lmax}"
             )
 
-        new_lmax = max(self.lmax, other.lmax)
-        new_mmax = max(self.mmax, other.mmax)
+        if target_mmax < self.mmax:
+            raise ValueError(
+                f"target mmax must be ≥ current mmax; got {target_mmax} < {self.mmax}"
+            )
 
-        # Pad both fields to the new maximum bounding box
-        stack_self_padded = self._pad_alm_stack(new_lmax, new_mmax)
-        stack_other_padded = other._pad_alm_stack(new_lmax, new_mmax)
+        if target_mmax > target_lmax:
+            raise ValueError(
+                f"target mmax must be ≤ target lmax; "
+                f"got mmax={target_mmax}, lmax={target_lmax}"
+            )
 
-        # Direct algebraic superposition
+        if target_lmax == self.lmax and target_mmax == self.mmax:
+            return ElectricField(
+                frequency_ghz=self.frequency_ghz,
+                lmax=self.lmax,
+                mmax=self.mmax,
+                alm_stack=self.alm_stack.copy(),
+            )
+
+        new_alm_stack = self._pad_alm_stack(
+            target_lmax=target_lmax,
+            target_mmax=target_mmax,
+        )
+
         return ElectricField(
             frequency_ghz=self.frequency_ghz,
-            lmax=new_lmax,
-            mmax=new_mmax,
-            alm_stack=stack_self_padded + stack_other_padded,
+            lmax=target_lmax,
+            mmax=target_mmax,
+            alm_stack=new_alm_stack,
+        )
+
+    def compatible_with(
+        self, other: "ElectricField"
+    ) -> tuple[
+        "ElectricField",
+        "ElectricField",
+    ]:
+        """
+        Return two equivalent fields promoted to a common harmonic representation.
+
+        The common representation uses
+
+            lmax = max(self.lmax, other.lmax)
+            mmax = max(self.mmax, other.mmax)
+
+        Existing coefficients are preserved and missing coefficients are filled with
+        zero. This is useful before comparing raw ``alm_stack`` arrays or performing
+        operations that require identical storage layouts.
+        """
+        target_lmax = max(self.lmax, other.lmax)
+        target_mmax = max(self.mmax, other.mmax)
+
+        return (
+            self.with_lmax_mmax(lmax=target_lmax, mmax=target_mmax),
+            other.with_lmax_mmax(lmax=target_lmax, mmax=target_mmax),
+        )
+
+    def _check_compatible_frequency(self, other: "ElectricField") -> None:
+        if not np.isclose(self.frequency_ghz, other.frequency_ghz, atol=1e-6):
+            raise ValueError(
+                "Cannot combine fields with different physical frequencies: "
+                f"{self.frequency_ghz} GHz != {other.frequency_ghz} GHz"
+            )
+
+    def __add__(self, other: "ElectricField") -> "ElectricField":
+        """Allows algebraic addition of two ElectricFields: field3 = field1 + field2"""
+        self._check_compatible_frequency(other)
+
+        self_cmp, other_cmp = self.compatible_with(other)
+
+        return ElectricField(
+            frequency_ghz=self_cmp.frequency_ghz,
+            lmax=self_cmp.lmax,
+            mmax=self_cmp.mmax,
+            alm_stack=self_cmp.alm_stack + other_cmp.alm_stack,
         )
 
     def __sub__(self, other: "ElectricField") -> "ElectricField":
         """Allows algebraic subtraction of two ElectricFields: field3 = field1 - field2"""
-        if not np.isclose(self.frequency_ghz, other.frequency_ghz, atol=1e-6):
-            raise ValueError(
-                "Cannot superimpose fields with different physical frequencies."
-            )
+        self._check_compatible_frequency(other)
 
-        new_lmax = max(self.lmax, other.lmax)
-        new_mmax = max(self.mmax, other.mmax)
-
-        stack_self_padded = self._pad_alm_stack(new_lmax, new_mmax)
-        stack_other_padded = other._pad_alm_stack(new_lmax, new_mmax)
+        self_cmp, other_cmp = self.compatible_with(other)
 
         return ElectricField(
-            frequency_ghz=self.frequency_ghz,
-            lmax=new_lmax,
-            mmax=new_mmax,
-            alm_stack=stack_self_padded - stack_other_padded,
+            frequency_ghz=self_cmp.frequency_ghz,
+            lmax=self_cmp.lmax,
+            mmax=self_cmp.mmax,
+            alm_stack=self_cmp.alm_stack - other_cmp.alm_stack,
         )
 
     def project_to_gl(
@@ -505,6 +756,70 @@ class ElectricField:
         efield_phi = map_vec_re[1] + 1j * map_vec_im[1]
 
         return (efield_theta, efield_phi)
+
+    def rotate_euler(self, angles: EulerAngles) -> "ElectricField":
+        """
+        Return a rotated copy of the beam. The rotation is expressed
+        using standard Euler angles (Z-Y-Z convention).
+
+        Args:
+            angles: An instance of the class :class:`.EulerAngles`
+
+        Returns:
+            ElectricField: A new, rotated field object.
+        """
+
+        # As Ducc use the *extrinsic* definition of Euler angles but `EulerAngles`
+        # follows Ticra’s *intrinsic* convention, we must reverse the list of
+        # angles: from φ↔α, θ↔β, ψ↔γ to ψ↔α, θ↔β, φ↔γ
+        alm_rotated = ducc0.sht.rotate_alm(
+            alm=self.alm_stack,
+            lmax=self.lmax,
+            mmax_in=self.mmax,
+            mmax_out=self.lmax,  # As the rotation might disrupt symmetry, we do *not* use self.mmax here!
+            phi=angles.alpha_rad,
+            theta=angles.beta_rad,
+            psi=angles.gamma_rad,
+        )
+
+        return ElectricField(
+            frequency_ghz=self.frequency_ghz,
+            lmax=self.lmax,
+            mmax=self.lmax,  # Sic!
+            alm_stack=alm_rotated,
+        )
+
+    def rotate_grasp(
+        self, theta_rad: float, phi_rad: float, psi_rad: float
+    ) -> "ElectricField":
+        """
+        Rotate the beam using the specific coordinate system parameters
+        defined in a TICRA GRASP project.
+
+        This method safely maps GRASP's (ϑ, φ, ψ) parameters to the
+        standard Z-Y-Z active Euler angles used by SWEaver.
+
+        Because the IAU polarization convention evaluates the twist looking at
+        the *sky* (−r vector), and TICRA evaluates it looking *outward* (+r vector)
+        using a clockwise definition, the two minus signs cancel. The TICRA
+        parameters map 1:1 to the active Wigner rotations:
+        1. α (inner twist)    = φ
+        2. β (tilt)           = ϑ
+        3. γ (polarization)   = ψ
+
+        Args:
+            theta_rad (float): The GRASP 'theta' parameter.
+            phi_rad (float):   The GRASP 'phi' parameter.
+            psi_rad (float):   The GRASP 'psi' parameter.
+        """
+        # The parameter `alpha_rad` has no minus sign because of the IAU/CMB mismatch
+        angles = EulerAngles(
+            alpha_rad=phi_rad,
+            beta_rad=theta_rad,
+            gamma_rad=psi_rad,
+        )
+
+        return self.rotate_euler(angles)
 
     def translate_phase_center(
         self,
@@ -586,7 +901,144 @@ class ElectricField:
 
         return ElectricField(self.frequency_ghz, l_new, m_new, new_alm)
 
-    def evaluate_grid(
+    def expressed_in_coordinate_system(
+        self,
+        source_csy_in_target: CoordinateSystem,
+    ) -> "ElectricField":
+        """
+        Return this field transformed from its local/source coordinate system into
+        a target coordinate system.
+
+        The argument describes the source coordinate system expressed relative to
+        the target coordinate system. In other words, if this field's coefficients
+        are currently expressed in frame S, and the desired output coefficients
+        should be expressed in frame T, then pass
+
+            source_csy_in_target = source_csy.relative_to(target_csy)
+
+        The transformation is active: the local field is rotated and translated
+        into the target frame so that the returned SWE coefficients can be summed
+        with other fields expressed in the same target frame.
+        """
+        return self.rotate_euler(source_csy_in_target.angles).translate_phase_center(
+            *source_csy_in_target.origin_m
+        )
+
+    def evaluate_at_locs(
+        self,
+        theta_rad: np.ndarray,
+        phi_rad: np.ndarray,
+        polarization: Polarization,
+        epsilon: float = 1e-8,
+        use_ticra_phase: bool = False,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Evaluate the electric field at arbitrary spherical-coordinate locations.
+
+        This is the most general single-frame evaluator. Unlike
+        :meth:`evaluate_theta_phi_grid`, the input directions do not need to lie on
+        a regular tensor-product grid. The arrays ``theta_rad`` and ``phi_rad`` may
+        have any shape, provided they have the same shape.
+
+        The supplied coordinates define both:
+
+        1. the physical directions where the field is sampled;
+        2. the local spherical basis used for the returned field components.
+
+        Therefore, when ``polarization`` is ``Polarization.LUDWIG3_X`` or
+        ``Polarization.LUDWIG3_Y``, the Ludwig-3 projection is computed using the
+        same azimuthal angle ``phi_rad`` passed to this method.
+
+        This method is appropriate when the sampling directions and the requested
+        output polarization basis belong to the same coordinate system. It is not,
+        by itself, sufficient for evaluating a cut defined in a different coordinate
+        system from the one in which the SWE coefficients are expressed. For that
+        case, use :meth:`evaluate_in_frame`.
+
+        Negative values of ``theta_rad`` are supported using the same convention as
+        :meth:`evaluate_theta_phi_grid`: a sample at ``(theta, phi)`` with
+        ``theta < 0`` is evaluated as ``(-theta, phi + pi)`` and the tangent-vector
+        components are sign-flipped afterwards.
+
+        Args:
+            theta_rad:
+                Colatitude angles in radians. May be any NumPy-broadcasted array,
+                but must have exactly the same shape as ``phi_rad`` after
+                conversion to arrays.
+
+            phi_rad:
+                Azimuthal angles in radians. Must have the same shape as
+                ``theta_rad``.
+
+            polarization:
+                Output polarization basis. If ``Polarization.THETA_PHI``, the
+                returned components are ``(E_theta, E_phi)`` in the local spherical
+                basis associated with ``theta_rad, phi_rad``. If Ludwig-3 is
+                requested, the returned components are ``(E_co, E_cx)``.
+
+            epsilon:
+                Desired accuracy for ``ducc0.sht.synthesis_general``.
+
+            use_ticra_phase:
+                If ``True``, complex-conjugate the returned components to match the
+                TICRA GRASP convention used in ``.cut`` and ``.grd`` files.
+
+        Returns:
+            Tuple ``(comp1, comp2)`` of complex arrays with the same shape as the
+            input angles.
+        """
+        theta = np.asarray(theta_rad)
+        phi = np.asarray(phi_rad)
+
+        if theta.shape != phi.shape:
+            raise ValueError(
+                "theta_rad and phi_rad must have the same shape; "
+                f"got {theta.shape} and {phi.shape}"
+            )
+
+        theta_work, phi_work, neg_mask = _canonicalize_theta_phi(theta, phi)
+
+        loc = np.stack((theta_work.ravel(), phi_work.ravel()), axis=-1)
+
+        map_vec_re = ducc0.sht.synthesis_general(
+            alm=self.alm_stack[0:2],
+            spin=1,
+            lmax=self.lmax,
+            mmax=self.mmax,
+            loc=loc,
+            epsilon=epsilon,
+        )
+
+        map_vec_im = ducc0.sht.synthesis_general(
+            alm=self.alm_stack[2:4],
+            spin=1,
+            lmax=self.lmax,
+            mmax=self.mmax,
+            loc=loc,
+            epsilon=epsilon,
+        )
+
+        e_theta = (map_vec_re[0] + 1j * map_vec_im[0]).reshape(theta.shape)
+        e_phi = (map_vec_re[1] + 1j * map_vec_im[1]).reshape(theta.shape)
+
+        # Convert components back to the tangent basis associated with the
+        # original possibly-negative theta parameterization.
+        e_theta[neg_mask] = -e_theta[neg_mask]
+        e_phi[neg_mask] = -e_phi[neg_mask]
+
+        result = _apply_polarization(
+            e_theta=e_theta,
+            e_phi=e_phi,
+            phi_grid=phi,
+            polarization=polarization,
+        )
+
+        if use_ticra_phase:
+            return np.conj(result[0]), np.conj(result[1])
+
+        return result
+
+    def evaluate_theta_phi_grid(
         self,
         theta_start_rad: float,
         theta_end_rad: float,
@@ -613,7 +1065,7 @@ class ElectricField:
             phi_end_rad (float): Ending longitude φ (azimuthal angle) in radians (0 to 2π).
             nphi (int): Number of samples along the longitude (φ) direction.
             polarization (Polarization): The polarization basis to use for the output components
-                (see `ungrasp.Polarization`).
+                (see :class:`.Polarization`).
             epsilon (float, optional): Desired accuracy for the spherical harmonic transform, by default 1e-8.
             use_ticra_phase (bool, optional): If ``True``, the complex conjugate of the field components is returned
                 to match TICRA GRASP convention for ``.cut`` and ``.grd`` files.
@@ -629,48 +1081,13 @@ class ElectricField:
 
         theta_grid, phi_grid = np.meshgrid(theta, phi, indexing="ij")
 
-        # ϑ < 0 requires a dedicated calculation
-        neg_mask = theta_grid < 0
-        theta_grid[neg_mask] = np.abs(theta_grid[neg_mask])
-        phi_grid[neg_mask] = phi_grid[neg_mask] + np.pi
-        phi_grid = phi_grid % (2 * np.pi)
-
-        # In this linearized representation of the directions, the φ angle varies faster than ϑ
-        loc = np.stack((theta_grid.ravel(), phi_grid.ravel()), axis=-1)
-
-        # Real part of the phasor
-        map_vec_re = ducc0.sht.synthesis_general(
-            alm=self.alm_stack[0:2],
-            spin=1,
-            lmax=self.lmax,
-            mmax=self.mmax,
-            loc=loc,
+        return self.evaluate_at_locs(
+            theta_rad=theta_grid,
+            phi_rad=phi_grid,
+            polarization=polarization,
             epsilon=epsilon,
+            use_ticra_phase=use_ticra_phase,
         )
-
-        # Imaginary part of the phasor
-        map_vec_im = ducc0.sht.synthesis_general(
-            alm=self.alm_stack[2:4],
-            spin=1,
-            lmax=self.lmax,
-            mmax=self.mmax,
-            loc=loc,
-            epsilon=epsilon,
-        )
-
-        e_theta = (map_vec_re[0] + 1j * map_vec_im[0]).reshape((ntheta, nphi))
-        e_phi = (map_vec_re[1] + 1j * map_vec_im[1]).reshape((ntheta, nphi))
-
-        e_theta[neg_mask] = -e_theta[neg_mask]
-        e_phi[neg_mask] = -e_phi[neg_mask]
-
-        result = _apply_polarization(
-            e_theta=e_theta, e_phi=e_phi, phi_grid=phi_grid, polarization=polarization
-        )
-        if use_ticra_phase:
-            return np.conj(result[0]), np.conj(result[1])
-        else:
-            return result
 
     def evaluate_cut(
         self,
@@ -694,7 +1111,7 @@ class ElectricField:
             theta_end_rad (float): Ending colatitude (polar angle) in radians (0 to pi).
             ntheta (int): Number of samples along the colatitude (theta) direction for the cut.
             polarization (Polarization): The polarization basis to use for the output components
-                (see `ungrasp.Polarization`).
+                (see :class:`.Polarization`).
             epsilon (float, optional): Desired accuracy for the spherical harmonic transform, by default 1e-8.
             use_ticra_phase (bool, optional): If ``True``, the complex conjugate of the field components is returned
                 to match TICRA GRASP convention for ``.cut`` and ``.grd`` files.
@@ -706,13 +1123,499 @@ class ElectricField:
                 field components along the 1D cut in the specified polarization basis.
         """
 
-        e1, e2 = self.evaluate_grid(
+        e1, e2 = self.evaluate_theta_phi_grid(
             theta_start_rad=theta_start_rad,
             theta_end_rad=theta_end_rad,
             ntheta=ntheta,
             phi_start_rad=phi_angle_rad,
             phi_end_rad=phi_angle_rad,
             nphi=1,
+            polarization=polarization,
+            epsilon=epsilon,
+            use_ticra_phase=use_ticra_phase,
+        )
+
+        return e1.flatten(), e2.flatten()
+
+    def evaluate_in_frame(
+        self,
+        theta_rad: np.ndarray,
+        phi_rad: np.ndarray,
+        rotation_matrix_child_to_base: np.ndarray,
+        polarization: Polarization,
+        epsilon: float = 1e-8,
+        use_ticra_phase: bool = False,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Evaluate the electric field along directions defined in a rotated frame.
+
+        This method evaluates the SWE coefficients, which are assumed to be
+        expressed in the base frame, at directions whose spherical coordinates are
+        given in a child/local coordinate system. It then projects the resulting
+        vector field onto the local spherical basis of the child frame before
+        applying the requested polarization convention.
+
+        This is the appropriate operation for comparing against TICRA cuts of the
+        form
+
+            spherical_cut(
+                coor_sys : ref(some_rotated_coordinate_system),
+                ...
+            )
+
+        when the underlying field coefficients are still those of the parent/base
+        coordinate system.
+
+        The operation performed is:
+
+        1. Interpret ``theta_rad, phi_rad`` as spherical coordinates in the child
+           frame.
+        2. Convert each local direction to a Cartesian unit vector in the child
+           frame.
+        3. Rotate those unit vectors into the base frame using
+           ``rotation_matrix_child_to_base``.
+        4. Convert the base-frame directions to spherical coordinates.
+        5. Evaluate the SWE coefficients in the base-frame spherical basis.
+        6. Reconstruct the vector electric field in base-frame Cartesian
+           components.
+        7. Rotate/project the field components onto the child-frame local spherical
+           basis.
+        8. Apply the requested polarization convention using the child-frame
+           azimuth ``phi_rad``.
+
+        This differs from :meth:`evaluate_at_locs`, where the same coordinate system
+        is used both for sampling the field and for defining the output polarization
+        basis. Here, the field is sampled in the base frame but reported in the
+        child-frame basis.
+
+        Args:
+            theta_rad:
+                Colatitude angles in radians in the child coordinate system. May
+                have arbitrary shape, but must have the same shape as ``phi_rad``.
+                Negative theta values are supported, as in TICRA-style cuts.
+
+            phi_rad:
+                Azimuthal angles in radians in the child coordinate system. Must
+                have the same shape as ``theta_rad``.
+
+            rotation_matrix_child_to_base:
+                Real ``3x3`` rotation matrix mapping Cartesian vector components
+                from the child frame to the base frame. In other words, if ``v_c``
+                is a vector expressed in the child frame, then
+
+                    v_b = rotation_matrix_child_to_base @ v_c
+
+                is the same physical vector expressed in the base frame.
+
+            polarization:
+                Output polarization basis. If ``Polarization.THETA_PHI``, the
+                returned components are ``(E_theta_child, E_phi_child)`` in the
+                local spherical basis of the child frame. If Ludwig-3 is requested,
+                the returned components are ``(E_co, E_cx)`` computed using the
+                child-frame azimuth ``phi_rad``.
+
+            epsilon:
+                Desired accuracy for ``ducc0.sht.synthesis_general``.
+
+            use_ticra_phase:
+                If ``True``, complex-conjugate the returned components to match the
+                TICRA GRASP convention used in ``.cut`` and ``.grd`` files.
+
+        Returns:
+            Tuple ``(comp1, comp2)`` of complex arrays with the same shape as
+            ``theta_rad`` and ``phi_rad``.
+
+        Raises:
+            ValueError:
+                If the input angle arrays do not have the same shape, or if
+                ``rotation_matrix_child_to_base`` is not a ``3x3`` matrix.
+        """
+        theta_child = np.asarray(theta_rad)
+        phi_child = np.asarray(phi_rad)
+
+        if theta_child.shape != phi_child.shape:
+            raise ValueError(
+                "theta_rad and phi_rad must have the same shape; "
+                f"got {theta_child.shape} and {phi_child.shape}"
+            )
+
+        R = np.asarray(rotation_matrix_child_to_base, dtype=float)
+
+        if R.shape != (3, 3):
+            raise ValueError(
+                f"rotation_matrix_child_to_base must have shape (3, 3); got {R.shape}"
+            )
+
+        # Directions and local spherical basis vectors in the child frame.
+        #
+        # We intentionally use the original theta_child values here, including
+        # possible negative values, because the basis associated with a TICRA-style
+        # negative-theta cut is the derivative basis of that parameterization.
+        n_child = _sph_to_cart(theta_child, phi_child)
+        thhat_child = _theta_hat(theta_child, phi_child)
+        phhat_child = _phi_hat(theta_child, phi_child)
+
+        # Rotate directions and basis vectors from child frame to base frame.
+        #
+        # Shapes:
+        #   R             : (3, 3)
+        #   n_child       : (3, ...)
+        #   n_base        : (3, ...)
+        n_base = np.einsum("ij,j...->i...", R, n_child)
+        thhat_child_in_base = np.einsum("ij,j...->i...", R, thhat_child)
+        phhat_child_in_base = np.einsum("ij,j...->i...", R, phhat_child)
+
+        # Convert the base-frame directions to canonical spherical coordinates.
+        theta_base, phi_base = _cart_to_sph(n_base)
+
+        # Evaluate in the base-frame spherical basis. Do not apply Ludwig-3 here:
+        # the Ludwig-3 projection must be done in the child frame, after the vector
+        # components have been projected onto the child-frame tangent basis.
+        e_theta_base, e_phi_base = self.evaluate_at_locs(
+            theta_rad=theta_base,
+            phi_rad=phi_base,
+            polarization=Polarization.THETA_PHI,
+            epsilon=epsilon,
+            use_ticra_phase=False,
+        )
+
+        # Base-frame spherical basis vectors at the sampled directions.
+        thhat_base = _theta_hat(theta_base, phi_base)
+        phhat_base = _phi_hat(theta_base, phi_base)
+
+        # Reconstruct the electric field as a Cartesian vector in the base frame.
+        e_cart_base = (
+            e_theta_base[None, ...] * thhat_base + e_phi_base[None, ...] * phhat_base
+        )
+
+        # Project onto the child-frame local spherical basis, expressed in the base
+        # frame. This is the crucial step absent from a simple rotated-coordinate
+        # call to evaluate_at_locs().
+        e_theta_child = np.sum(e_cart_base * thhat_child_in_base, axis=0)
+        e_phi_child = np.sum(e_cart_base * phhat_child_in_base, axis=0)
+
+        result = _apply_polarization(
+            e_theta=e_theta_child,
+            e_phi=e_phi_child,
+            phi_grid=phi_child,
+            polarization=polarization,
+        )
+
+        if use_ticra_phase:
+            return np.conj(result[0]), np.conj(result[1])
+
+        return result
+
+    def evaluate_theta_phi_grid_in_frame(
+        self,
+        theta_start_rad: float,
+        theta_end_rad: float,
+        ntheta: int,
+        phi_start_rad: float,
+        phi_end_rad: float,
+        nphi: int,
+        frame: EulerAngles | np.ndarray,
+        polarization: Polarization,
+        epsilon: float = 1e-8,
+        use_ticra_phase: bool = False,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Evaluate the electric field on a regular angular grid defined in a rotated frame.
+
+        This method is the frame-aware counterpart of
+        :meth:`evaluate_theta_phi_grid`. The spherical coordinates ``theta`` and
+        ``phi`` are interpreted as coordinates in a child/local coordinate system,
+        while the SWE coefficients stored in this object are assumed to be expressed
+        in the base coordinate system.
+
+        The method evaluates the field at the corresponding physical directions,
+        then projects the vector field onto the local spherical basis of the child
+        frame before applying the requested polarization convention.
+
+        This is useful for reproducing TICRA cuts or grids such as
+
+            spherical_cut(coor_sys : ref(rotated_coordinate_system))
+
+        without explicitly rotating the SWE coefficients.
+
+        Args:
+            theta_start_rad:
+                Starting colatitude angle in radians in the child coordinate system.
+                Negative values are supported, as in TICRA-style cuts.
+
+            theta_end_rad:
+                Ending colatitude angle in radians in the child coordinate system.
+
+            ntheta:
+                Number of samples along the colatitude direction.
+
+            phi_start_rad:
+                Starting azimuth angle in radians in the child coordinate system.
+
+            phi_end_rad:
+                Ending azimuth angle in radians in the child coordinate system.
+
+            nphi:
+                Number of samples along the azimuth direction.
+
+            frame:
+                Either an :class:`EulerAngles` instance or a ``3x3`` matrix mapping
+                Cartesian vector components from the child frame to the base frame.
+                If an :class:`EulerAngles` instance is provided, its
+                ``as_child_to_base_matrix()`` method is used.
+
+            polarization:
+                Output polarization basis. If ``Polarization.THETA_PHI``, the
+                returned components are expressed in the local spherical basis of
+                the child frame. If Ludwig-3 is requested, the projection uses the
+                child-frame azimuth angles.
+
+            epsilon:
+                Desired accuracy for ``ducc0.sht.synthesis_general``.
+
+            use_ticra_phase:
+                If ``True``, complex-conjugate the returned components to match the
+                TICRA GRASP convention used in ``.cut`` and ``.grd`` files.
+
+        Returns:
+            Tuple ``(comp1, comp2)`` of complex arrays with shape ``(ntheta, nphi)``.
+        """
+        theta = np.linspace(theta_start_rad, theta_end_rad, num=ntheta)
+        phi = np.linspace(phi_start_rad, phi_end_rad, num=nphi)
+
+        theta_grid, phi_grid = np.meshgrid(theta, phi, indexing="ij")
+
+        rotation_matrix_child_to_base = self._coor_sys_to_rotation_matrix(frame)
+
+        return self.evaluate_in_frame(
+            theta_rad=theta_grid,
+            phi_rad=phi_grid,
+            rotation_matrix_child_to_base=rotation_matrix_child_to_base,
+            polarization=polarization,
+            epsilon=epsilon,
+            use_ticra_phase=use_ticra_phase,
+        )
+
+    def evaluate_cut_in_frame(
+        self,
+        phi_angle_rad: float,
+        theta_start_rad: float,
+        theta_end_rad: float,
+        ntheta: int,
+        frame: EulerAngles | np.ndarray,
+        polarization: Polarization,
+        epsilon: float = 1e-8,
+        use_ticra_phase: bool = False,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Extract a 1D spherical cut defined in a rotated coordinate system.
+
+        This is the frame-aware counterpart of :meth:`evaluate_cut`. The cut is
+        parameterized by a constant child-frame azimuth ``phi_angle_rad`` and a
+        range of child-frame colatitude angles. The field coefficients themselves
+        are not rotated. Instead, the requested child-frame directions are mapped
+        into the base frame, the field is evaluated there, and the vector components
+        are projected back onto the child-frame spherical basis.
+
+        This method is the appropriate way to reproduce TICRA operations of the form
+
+            spherical_cut(
+                coor_sys : ref(rotated_coordinate_system),
+                ...
+            )
+
+        when the SWE coefficients are expressed in the base coordinate system.
+
+        Args:
+            phi_angle_rad:
+                Constant azimuth angle of the cut in the child coordinate system.
+
+            theta_start_rad:
+                Starting colatitude angle in radians in the child coordinate system.
+                Negative values are supported, as in TICRA-style cuts.
+
+            theta_end_rad:
+                Ending colatitude angle in radians in the child coordinate system.
+
+            ntheta:
+                Number of samples along the cut.
+
+            frame:
+                Either an :class:`EulerAngles` instance or a ``3x3`` matrix mapping
+                Cartesian vector components from the child frame to the base frame.
+                If an :class:`EulerAngles` instance is provided, its
+                ``as_child_to_base_matrix()`` method is used.
+
+            polarization:
+                Output polarization basis. If ``Polarization.THETA_PHI``, the
+                returned components are expressed in the child-frame spherical basis.
+                If Ludwig-3 is requested, the projection uses the child-frame
+                azimuth ``phi_angle_rad``.
+
+            epsilon:
+                Desired accuracy for ``ducc0.sht.synthesis_general``.
+
+            use_ticra_phase:
+                If ``True``, complex-conjugate the returned components to match the
+                TICRA GRASP convention used in ``.cut`` and ``.grd`` files.
+
+        Returns:
+            Tuple ``(comp1, comp2)`` of complex arrays with shape ``(ntheta,)``.
+        """
+        e1, e2 = self.evaluate_theta_phi_grid_in_frame(
+            theta_start_rad=theta_start_rad,
+            theta_end_rad=theta_end_rad,
+            ntheta=ntheta,
+            phi_start_rad=phi_angle_rad,
+            phi_end_rad=phi_angle_rad,
+            nphi=1,
+            frame=frame,
+            polarization=polarization,
+            epsilon=epsilon,
+            use_ticra_phase=use_ticra_phase,
+        )
+
+        return e1.flatten(), e2.flatten()
+
+    def evaluate_theta_phi_grid_in_coordinate_system(
+        self,
+        theta_start_rad: float,
+        theta_end_rad: float,
+        ntheta: int,
+        phi_start_rad: float,
+        phi_end_rad: float,
+        nphi: int,
+        coor_sys: CoordinateSystem,
+        polarization: Polarization,
+        epsilon: float = 1e-8,
+        use_ticra_phase: bool = False,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Evaluate the electric field on an angular grid in a translated and rotated
+        coordinate system.
+
+        This is the TICRA-like counterpart of :meth:`evaluate_theta_phi_grid`.
+        The coordinate system is described by a :class:`CoordinateSystem`, whose
+        origin and Euler angles are interpreted as in TICRA:
+
+        - ``coor_sys.origin_m`` is the position of the child origin expressed in
+          the base frame.
+        - ``coor_sys.angles`` describes the orientation of the child axes relative
+          to the base axes.
+
+        The SWE coefficients stored in this object are assumed to be expressed in
+        the base coordinate system.
+
+        To evaluate the field as seen from a child coordinate system whose origin
+        is displaced by ``+origin_m``, SWEaver shifts the field phase center by
+        ``-origin_m`` and then evaluates the field in the rotated child frame. This
+        sign convention reproduces TICRA ``coor_sys_euler_angles(origin: ...)``
+        spherical cuts.
+
+        Args:
+            theta_start_rad, theta_end_rad:
+                Start and end colatitude angles in the child coordinate system.
+
+            ntheta:
+                Number of colatitude samples.
+
+            phi_start_rad, phi_end_rad:
+                Start and end azimuth angles in the child coordinate system.
+
+            nphi:
+                Number of azimuth samples.
+
+            coor_sys:
+                Coordinate system in which the angular grid is defined.
+
+            polarization:
+                Output polarization basis.
+
+            epsilon:
+                Desired accuracy for ``ducc0.sht.synthesis_general``.
+
+            use_ticra_phase:
+                If ``True``, complex-conjugate the returned components to match
+                TICRA ``.cut`` and ``.grd`` files.
+
+        Returns:
+            Tuple of arrays with shape ``(ntheta, nphi)``.
+        """
+        shifted_field = self.translate_phase_center(*(-coor_sys.origin_m))
+
+        return shifted_field.evaluate_theta_phi_grid_in_frame(
+            theta_start_rad=theta_start_rad,
+            theta_end_rad=theta_end_rad,
+            ntheta=ntheta,
+            phi_start_rad=phi_start_rad,
+            phi_end_rad=phi_end_rad,
+            nphi=nphi,
+            frame=coor_sys.angles,
+            polarization=polarization,
+            epsilon=epsilon,
+            use_ticra_phase=use_ticra_phase,
+        )
+
+    def evaluate_cut_in_coordinate_system(
+        self,
+        phi_angle_rad: float,
+        theta_start_rad: float,
+        theta_end_rad: float,
+        ntheta: int,
+        coor_sys: CoordinateSystem,
+        polarization: Polarization,
+        epsilon: float = 1e-8,
+        use_ticra_phase: bool = False,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Extract a 1D spherical cut in a translated and rotated coordinate system.
+
+        This is the TICRA-like counterpart of :meth:`evaluate_cut`. It reproduces
+        operations of the form
+
+            spherical_cut(coor_sys : ref(some_csy))
+
+        where ``some_csy`` may include both an ``origin`` and Euler angles.
+
+        The field coefficients are assumed to be expressed in the base coordinate
+        system. The angular samples are interpreted in ``coor_sys``. Internally,
+        SWEaver shifts the field phase center by ``-coor_sys.origin_m`` and then
+        evaluates the cut in the rotated child frame.
+
+        Args:
+            phi_angle_rad:
+                Constant azimuth angle of the cut in ``coor_sys``.
+
+            theta_start_rad, theta_end_rad:
+                Start and end colatitude angles in ``coor_sys``.
+
+            ntheta:
+                Number of cut samples.
+
+            coor_sys:
+                Coordinate system defining both the cut origin and orientation.
+
+            polarization:
+                Output polarization basis.
+
+            epsilon:
+                Desired accuracy for ``ducc0.sht.synthesis_general``.
+
+            use_ticra_phase:
+                If ``True``, complex-conjugate the returned components to match
+                TICRA ``.cut`` files.
+
+        Returns:
+            Tuple of 1D arrays with shape ``(ntheta,)``.
+        """
+        e1, e2 = self.evaluate_theta_phi_grid_in_coordinate_system(
+            theta_start_rad=theta_start_rad,
+            theta_end_rad=theta_end_rad,
+            ntheta=ntheta,
+            phi_start_rad=phi_angle_rad,
+            phi_end_rad=phi_angle_rad,
+            nphi=1,
+            coor_sys=coor_sys,
             polarization=polarization,
             epsilon=epsilon,
             use_ticra_phase=use_ticra_phase,
@@ -762,7 +1665,7 @@ class ElectricField:
                 ratio_texture = efield.to_texture(mode=my_map)
         """
         n_theta, n_phi = shape
-        e_theta, e_phi = self.evaluate_grid(
+        e_theta, e_phi = self.evaluate_theta_phi_grid(
             0, np.pi, n_theta, 0, 2 * np.pi, n_phi, polarization
         )
 
@@ -827,7 +1730,7 @@ class ElectricField:
                 efield.show_3d(mode="db")
 
                 # Inspect the phase of the Ludwig-3 X-polarized component
-                from ungrasp import MapMode, Polarization
+                from sweaver import MapMode, Polarization
                 efield.show_3d(mode=MapMode.PHASE_THETA, polarization=Polarization.LUDWIG3_X)
         """
         try:
@@ -864,7 +1767,7 @@ class ElectricField:
 
         # Make the box a cube, so that the sphere doesn’t look like an ellipsoid
         fig.update_layout(
-            title=f"Ungrasp 3D: {str(mode)}",
+            title=f"SWEaver 3D: {str(mode)}",
             scene=dict(
                 aspectmode="data",  # This keeps the sphere spherical
                 xaxis=dict(visible=False),
@@ -875,67 +1778,6 @@ class ElectricField:
         )
 
         return fig.show()
-
-    def rotate_euler(self, angles: EulerAngles) -> "ElectricField":
-        """
-        Return a rotated copy of the beam. The rotation is expressed
-        using standard Euler angles (Z-Y-Z convention).
-
-        Args:
-            angles: An instance of the class :class:`.EulerAngles`
-
-        Returns:
-            ElectricField: A new, rotated field object.
-        """
-
-        alm_rotated = ducc0.sht.rotate_alm(
-            alm=self.alm_stack,
-            lmax=self.lmax,
-            mmax_in=self.mmax,
-            mmax_out=self.mmax,
-            psi=angles.alpha_rad,
-            theta=angles.beta_rad,
-            phi=angles.gamma_rad,
-        )
-
-        return ElectricField(
-            frequency_ghz=self.frequency_ghz,
-            lmax=self.lmax,
-            mmax=self.mmax,
-            alm_stack=alm_rotated,
-        )
-
-    def rotate_grasp(
-        self, theta_rad: float, phi_rad: float, psi_rad: float
-    ) -> "ElectricField":
-        """
-        Rotate the beam using the specific coordinate system parameters
-        defined in a TICRA GRASP project.
-
-        This method safely maps GRASP's (ϑ, φ, ψ) parameters to the
-        standard Z-Y-Z active Euler angles used by Ungrasp.
-
-        Because the IAU polarization convention evaluates the twist looking at
-        the *sky* (−r vector), and TICRA evaluates it looking *outward* (+r vector)
-        using a clockwise definition, the two minus signs cancel. The TICRA
-        parameters map 1:1 to the active Wigner rotations:
-        1. α (inner twist) = +ψ
-        2. β (tilt)        = ϑ
-        3. γ (azimuth)     = φ
-
-        Args:
-            theta_rad (float): The GRASP 'theta' parameter.
-            phi_rad (float):   The GRASP 'phi' parameter.
-            psi_rad (float):   The GRASP 'psi' parameter.
-        """
-        # The parameter `alpha_rad` has no minus sign because of the IAU/CMB mismatch
-        angles = EulerAngles(
-            alpha_rad=psi_rad,
-            beta_rad=theta_rad,
-            gamma_rad=phi_rad,
-        )
-
-        return self.rotate_euler(angles)
 
     def find_peak(
         self,
@@ -961,7 +1803,7 @@ class ElectricField:
         # Sample the region where the maximum is
         theta_start_rad, theta_end_rad, ntheta = region_theta_rad
         phi_start_rad, phi_end_rad, nphi = region_phi_rad
-        e_co, e_cx = self.evaluate_grid(
+        e_co, e_cx = self.evaluate_theta_phi_grid(
             theta_start_rad=theta_start_rad,
             theta_end_rad=theta_end_rad,
             ntheta=ntheta,
@@ -985,7 +1827,7 @@ class ElectricField:
         # Use SciPy to find the accurate position of the maximum
         def objective(coords: tuple[np.float64, np.float64]) -> np.float64:
             cur_theta, cur_phi = coords
-            new_theta, new_phi = self.evaluate_grid(
+            new_theta, new_phi = self.evaluate_theta_phi_grid(
                 theta_start_rad=cur_theta,
                 theta_end_rad=cur_theta,
                 ntheta=1,
@@ -1007,14 +1849,14 @@ class ElectricField:
         # Create a copy of this field and rotate it so that the maximum is
         # aligned with +Z
         reoriented_beam = self.rotate_euler(
-            EulerAngles(alpha_rad=-phi_peak, beta_rad=-theta_peak, gamma_rad=0.0),
+            EulerAngles(alpha_rad=0.0, beta_rad=-theta_peak, gamma_rad=-phi_peak),
         )
 
         # Align the polarization axis with the x axis
         # (The polarization axis is the direction of the copolar component of the
         # electric field)
 
-        e_co, e_cx = reoriented_beam.evaluate_grid(
+        e_co, e_cx = reoriented_beam.evaluate_theta_phi_grid(
             theta_start_rad=0.0,
             theta_end_rad=0.0,
             ntheta=1,
@@ -1052,7 +1894,7 @@ class ElectricField:
         theta, phi, psi = self.find_peak(region_theta_rad, region_phi_rad)
 
         # The inverse of a beam at (theta, phi) with twist (psi)
-        return EulerAngles(alpha_rad=-phi, beta_rad=-theta, gamma_rad=-psi)
+        return EulerAngles(alpha_rad=-psi, beta_rad=-theta, gamma_rad=-phi)
 
     def align(
         self,
@@ -1070,7 +1912,7 @@ class Beam:
     A beam pattern decomposed into Stokes parameters (I, Q, U) via spherical harmonics
     (Spin-0 and Spin-2).
 
-    Unlike :py:class:`ungrasp.ElectricField` which uses physical components
+    Unlike :class:`.ElectricField` which uses physical components
     (:math:`E_\\theta, E_\\phi`), this class provides a representation suitable for
     CMB data analysis and beam convolution libraries. The field is described
     using the standard CMB convention:

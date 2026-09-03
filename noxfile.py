@@ -8,7 +8,7 @@ nox.options.default_venv_backend = "uv"
 def tests(session):
     """Run the test suite."""
     session.run("uv", "sync", "--python", session.python, external=True)
-    session.run("uv", "run", "pytest", external=True)
+    session.run("uv", "run", "python3", "-m", "pytest", external=True)
 
 
 @nox.session(python="3.11")
@@ -33,7 +33,7 @@ def test_install(session):
     latest_wheel = os.path.abspath(max(wheels, key=os.path.getmtime))
 
     # 3. Create a temporary directory and switch to it
-    # This prevents Python from importing the local 'src/ungrasp'
+    # This prevents Python from importing the local 'src/sweaver'
     # instead of the installed wheel.
     tmp_dir = session.create_tmp()
     session.chdir(tmp_dir)
@@ -44,8 +44,8 @@ def test_install(session):
 
     # 5. Run a quick script to test that 'importlib.resources' successfully finds the data
     script = (
-        "import ungrasp; "
-        "path = ungrasp.get_test_data_path('hertzian_e_dipole_x'); "
+        "import sweaver; "
+        "path = sweaver.get_test_data_path('hertzian_e_dipole_x'); "
         "assert path.exists(), f'File not found: {path}'; "
         "print(f'Test data successfully found at: {path}')"
     )

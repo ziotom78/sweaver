@@ -1,24 +1,24 @@
 Usage
 =====
 
-This page provides an overview of how to use Ungrasp to load, process, and convert spherical harmonic expansions of antenna beams produced by TICRA GRASP.
+This page provides an overview of how to use SWEaver to load, process, and convert spherical harmonic expansions of antenna beams produced by TICRA GRASP.
 
 1. Basic Information
 --------------------
 
-The first step is to load a `.sph` file and inspect its contents. Ungrasp allows you to parse the file and extract the frequency blocks, which contain the :math:`Q_{smn}` coefficients.
+The first step is to load a `.sph` file and inspect its contents. SWEaver allows you to parse the file and extract the frequency blocks, which contain the :math:`Q_{smn}` coefficients.
 
 .. doctest::
 
-    >>> import ungrasp
+    >>> import sweaver
     >>> import gzip
     >>>
-    >>> # Get a sample file path (included in the Ungrasp test suite)
-    >>> path = ungrasp.get_test_data_path('gaussian_beam')
+    >>> # Get a sample file path (included in the SWEaver test suite)
+    >>> path = sweaver.get_test_data_path('gaussian_beam')
     >>>
     >>> # Parse the .sph file
     >>> with gzip.open(path, "rt") as f:
-    ...     sph_file = ungrasp.read_sph_file(f)
+    ...     sph_file = sweaver.read_sph_file(f)
     >>>
     >>> # Extract the frequency block
     >>> freq_block = sph_file.get(0)
@@ -36,18 +36,18 @@ The first step is to load a `.sph` file and inspect its contents. Ungrasp allows
 2. Evaluating an Electric Field Cut
 -----------------------------------
 
-Once the raw coefficients are loaded, we can convert them into a physical :py:class:`ungrasp.ElectricField` object. This allows us to sample the complex electric field vector along any grid or 1D cut.
+Once the raw coefficients are loaded, we can convert them into a physical :py:class:`sweaver.ElectricField` object. This allows us to sample the complex electric field vector along any grid or 1D cut.
 
 In this example, we extract a 1D cut of the field at a constant azimuthal angle (:math:`\phi = 0^\circ`) and print the complex co-polar and cross-polar components using Ludwig's 3rd polarization definition.
 
 .. testsetup:: ecut
 
-    import ungrasp
+    import sweaver
     import gzip
     import numpy as np
-    path = ungrasp.get_test_data_path('gaussian_beam')
+    path = sweaver.get_test_data_path('gaussian_beam')
     with gzip.open(path, "rt") as f:
-        sph_file = ungrasp.read_sph_file(f)
+        sph_file = sweaver.read_sph_file(f)
     freq_block = sph_file.get(0)
 
 .. doctest:: ecut
@@ -56,7 +56,7 @@ In this example, we extract a 1D cut of the field at a constant azimuthal angle 
     >>> import matplotlib.pyplot as plt
     >>>
     >>> # Convert the raw coefficients to a manipulable Electric Field
-    >>> efield = ungrasp.ElectricField.from_frequency_block(freq_block)
+    >>> efield = sweaver.ElectricField.from_frequency_block(freq_block)
     >>>
     >>> # Define the cut parameters
     >>> phi_cut_rad = np.radians(0.0)
@@ -70,7 +70,7 @@ In this example, we extract a 1D cut of the field at a constant azimuthal angle 
     ...     theta_start_rad=theta_start_rad,
     ...     theta_end_rad=theta_end_rad,
     ...     ntheta=num_samples,
-    ...     polarization=ungrasp.Polarization.LUDWIG3_X,
+    ...     polarization=sweaver.Polarization.LUDWIG3_X,
     ... )
     >>>
     >>> # Print the tabulated values
@@ -92,22 +92,22 @@ We can use `matplotlib` to plot the cut of the electric field. Here we evaluate 
 .. plot::
 
     import gzip
-    import ungrasp
+    import sweaver
     import numpy as np
     import matplotlib.pyplot as plt
 
-    path = ungrasp.get_test_data_path('gaussian_beam')
+    path = sweaver.get_test_data_path('gaussian_beam')
     with gzip.open(path, "rt") as f:
-        sph_file = ungrasp.read_sph_file(f)
+        sph_file = sweaver.read_sph_file(f)
     freq_block = sph_file.get(0)
-    efield = ungrasp.ElectricField.from_frequency_block(freq_block)
+    efield = sweaver.ElectricField.from_frequency_block(freq_block)
 
     e_co, e_cx = efield.evaluate_cut(
         phi_angle_rad=0.0,
         theta_start_rad=0.0,
         theta_end_rad=np.radians(15.0),
         ntheta=200,
-        polarization=ungrasp.Polarization.LUDWIG3_X,
+        polarization=sweaver.Polarization.LUDWIG3_X,
     )
     thetas = np.linspace(0, 10.0, 200)
 
@@ -130,25 +130,25 @@ We can use `matplotlib` to plot the cut of the electric field. Here we evaluate 
 
 For Cosmic Microwave Background (CMB) analysis, beam convolution codes typically require the beam to be expressed in terms of Stokes parameters (I, Q, U) rather than the physical electric field.
 
-Ungrasp provides the :py:class:`ungrasp.Beam` class, which automatically performs this conversion, decomposing the beam into Spin-0 (Intensity) and Spin-2 (E-mode and B-mode polarization) spherical harmonics.
+SWEaver provides the :py:class:`sweaver.Beam` class, which automatically performs this conversion, decomposing the beam into Spin-0 (Intensity) and Spin-2 (E-mode and B-mode polarization) spherical harmonics.
 
 .. testsetup:: stokes
 
-    import ungrasp
+    import sweaver
     import gzip
     import numpy as np
     import matplotlib.pyplot as plt
-    path = ungrasp.get_test_data_path('gaussian_beam')
+    path = sweaver.get_test_data_path('gaussian_beam')
     with gzip.open(path, "rt") as f:
-        sph_file = ungrasp.read_sph_file(f)
+        sph_file = sweaver.read_sph_file(f)
     freq_block = sph_file.get(0)
-    efield = ungrasp.ElectricField.from_frequency_block(freq_block)
+    efield = sweaver.ElectricField.from_frequency_block(freq_block)
 
 .. doctest:: stokes
 
     >>> # Convert the electric field into a CMB-ready Beam object
     >>> # We limit the expansion to lmax=10 for speed
-    >>> beam = ungrasp.Beam.from_electric_field(efield, lmax=10)
+    >>> beam = sweaver.Beam.from_electric_field(efield, lmax=10)
     >>>
     >>> # Compute the angular power spectra (C_l) for Intensity (I), E-modes, and B-modes
     >>> ells, cl_i, cl_e, cl_b = beam.angular_power_spectra()
@@ -170,17 +170,17 @@ We can visualize these angular power spectra up to the original expansion limit 
 .. plot::
 
     import gzip
-    import ungrasp
+    import sweaver
     import numpy as np
     import matplotlib.pyplot as plt
 
-    path = ungrasp.get_test_data_path('gaussian_beam')
+    path = sweaver.get_test_data_path('gaussian_beam')
     with gzip.open(path, "rt") as f:
-        sph_file = ungrasp.read_sph_file(f)
-    efield = ungrasp.ElectricField.from_frequency_block(sph_file.get(0))
+        sph_file = sweaver.read_sph_file(f)
+    efield = sweaver.ElectricField.from_frequency_block(sph_file.get(0))
 
     # Convert to Beam object using the full lmax
-    beam = ungrasp.Beam.from_electric_field(efield)
+    beam = sweaver.Beam.from_electric_field(efield)
     ells, cl_i, cl_e, cl_b = beam.angular_power_spectra()
 
     plt.figure(figsize=(8, 5))

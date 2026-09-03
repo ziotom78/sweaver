@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.abspath("../src"))
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = "Ungrasp"
+project = "SWEaver"
 copyright = "2024, Maurizio Tomasi"
 author = "Maurizio Tomasi"
 release = "0.1.0"
